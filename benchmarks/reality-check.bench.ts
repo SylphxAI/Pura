@@ -93,6 +93,14 @@ describe('Reality Check: List Operations (1000 elements)', () => {
     }
   });
 
+  bench('IList Transient - 10 sequential sets', () => {
+    let list = ilist.asTransient();
+    for (let i = 0; i < 10; i++) {
+      list = list.set(i * 100, 999);
+    }
+    list.toPersistent();
+  });
+
   bench('Array (naive FP) - 10 sequential sets (10 full copies!)', () => {
     let arr = mutableArray;
     for (let i = 0; i < 10; i++) {

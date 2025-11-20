@@ -198,6 +198,7 @@ function findChildIndex(sizes: number[], index: number): number {
 /**
  * Set value at index (returns new vector)
  * O(log₃₂ n) with path copying
+ * If vector is transient, modifies in-place for performance
  */
 export function set<T>(
   vec: VectorRoot<T>,
@@ -208,17 +209,109 @@ export function set<T>(
     throw new RangeError(`Index out of bounds: ${index}`);
   }
 
-  // Tail update: O(1) copy
+  const edit = vec.edit;
+
+  // Tail update
   if (index >= tailOffset(vec)) {
     const tailIndex = index - tailOffset(vec);
-    const newTail = [...vec.tail];
-    newTail[tailIndex] = value;
-    return { ...vec, tail: newTail };
+
+    if (edit) {
+      // Transient: mutate in-place
+      vec.tail[tailIndex] = value;
+      return vec;
+    } else {
+      // Persistent: copy
+      const newTail = [...vec.tail];
+      newTail[tailIndex] = value;
+      return { ...vec, tail: newTail };
+    }
   }
 
-  // Tree update: O(log₃₂ n) path copying
-  const newRoot = setInNode(vec.root, index, value, vec.shift);
-  return { ...vec, root: newRoot };
+  // Tree update
+  const newRoot = edit
+    ? setInNodeMut(vec.root, index, value, vec.shift, edit)
+    : setInNode(vec.root, index, value, vec.shift);
+
+  if (edit) {
+    // Transient: mutate in-place
+    vec.root = newRoot;
+    return vec;
+  } else {
+    // Persistent: return new
+    return { ...vec, root: newRoot };
+  }
+}
+
+/**
+ * Set value in node (mutable version for transients)
+ */
+function setInNodeMut<T>(
+  node: VectorNode<T> | null,
+  index: number,
+  value: T,
+  shift: number,
+  edit: Edit,
+): VectorNode<T> {
+  if (!node) {
+    // Create new leaf with edit token
+    const array = new Array<T>(BRANCH_SIZE);
+    array[index & BIT_MASK] = value;
+    return { type: 'leaf', array, edit };
+  }
+
+  if (node.type === 'leaf') {
+    // If node is editable, mutate in-place
+    if (node.edit === edit) {
+      node.array[index & BIT_MASK] = value;
+      return node;
+    }
+    // Otherwise copy
+    const newArray = [...node.array];
+    newArray[index & BIT_MASK] = value;
+    return { type: 'leaf', array: newArray, edit };
+  }
+
+  if (node.type === 'branch') {
+    const childIndex = (index >>> shift) & BIT_MASK;
+    const newChild = setInNodeMut(
+      node.array[childIndex] ?? null,
+      index,
+      value,
+      shift - BITS,
+      edit,
+    );
+
+    // If node is editable, mutate in-place
+    if (node.edit === edit) {
+      node.array[childIndex] = newChild;
+      return node;
+    }
+    // Otherwise copy
+    const newArray = [...node.array];
+    newArray[childIndex] = newChild;
+    return { type: 'branch', array: newArray, edit };
+  }
+
+  // Relaxed node
+  const childIndex = findChildIndex(node.sizes, index);
+  const offset = childIndex > 0 ? node.sizes[childIndex - 1]! : 0;
+  const newChild = setInNodeMut(
+    node.array[childIndex] ?? null,
+    index - offset,
+    value,
+    shift - BITS,
+    edit,
+  );
+
+  // If node is editable, mutate in-place
+  if (node.edit === edit) {
+    node.array[childIndex] = newChild;
+    return node;
+  }
+  // Otherwise copy
+  const newArray = [...node.array];
+  newArray[childIndex] = newChild;
+  return { type: 'relaxed', array: newArray, sizes: [...node.sizes], edit };
 }
 
 /**
