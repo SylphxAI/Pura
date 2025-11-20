@@ -139,6 +139,60 @@ describe('IList', () => {
       expect(list2.size).toBe(3);
       expect(result.size).toBe(6);
     });
+
+    it('concatenates large lists (100 + 100)', () => {
+      const list1 = IList.from(Array.from({ length: 100 }, (_, i) => i));
+      const list2 = IList.from(Array.from({ length: 100 }, (_, i) => i + 100));
+      const result = list1.concat(list2);
+
+      expect(result.size).toBe(200);
+      expect(result.get(0)).toBe(0);
+      expect(result.get(99)).toBe(99);
+      expect(result.get(100)).toBe(100);
+      expect(result.get(199)).toBe(199);
+    });
+
+    it('concatenates very large lists (1000 + 1000)', () => {
+      const list1 = IList.from(Array.from({ length: 1000 }, (_, i) => i));
+      const list2 = IList.from(Array.from({ length: 1000 }, (_, i) => i + 1000));
+      const result = list1.concat(list2);
+
+      expect(result.size).toBe(2000);
+      expect(result.get(0)).toBe(0);
+      expect(result.get(999)).toBe(999);
+      expect(result.get(1000)).toBe(1000);
+      expect(result.get(1999)).toBe(1999);
+
+      // Verify all elements
+      for (let i = 0; i < 2000; i++) {
+        expect(result.get(i)).toBe(i);
+      }
+    });
+
+    it('concatenates multiple times', () => {
+      let result = IList.empty<number>();
+      const chunk = IList.from([1, 2, 3, 4, 5]);
+
+      for (let i = 0; i < 10; i++) {
+        result = result.concat(chunk);
+      }
+
+      expect(result.size).toBe(50);
+      expect(result.get(0)).toBe(1);
+      expect(result.get(49)).toBe(5);
+    });
+
+    it('concatenates lists of different sizes', () => {
+      const small = IList.from([1, 2, 3]);
+      const large = IList.from(Array.from({ length: 500 }, (_, i) => i + 10));
+      const result = small.concat(large);
+
+      expect(result.size).toBe(503);
+      expect(result.get(0)).toBe(1);
+      expect(result.get(2)).toBe(3);
+      expect(result.get(3)).toBe(10);
+      expect(result.get(502)).toBe(509);
+    });
   });
 
   describe('slice', () => {

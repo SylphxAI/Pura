@@ -271,9 +271,23 @@ function pushTail<T>(
 
   // Tree full at current depth: create new root level
   if (isTreeFull(root, shift)) {
+    // When increasing tree height, we need to wrap the new leaf appropriately
+    // The new root's children should be at the same level as the old root
+    let rightChild: VectorNode<T> = newLeaf;
+
+    // Wrap the leaf in branches until it matches the depth of the left child
+    // If shift is 5, we need to go from 0 to 5 (one wrap)
+    // If shift is 10, we need to go from 0 to 10 (two wraps)
+    for (let s = 0; s < shift; s += BITS) {
+      rightChild = {
+        type: 'branch',
+        array: [rightChild],
+      };
+    }
+
     const newRoot: BranchNode<T> = {
       type: 'branch',
-      array: [root, newLeaf],
+      array: [root, rightChild],
     };
     return { root: newRoot, shift: shift + BITS };
   }
@@ -504,4 +518,356 @@ function* iterateNode<T>(node: VectorNode<T>): Iterator<T> {
       }
     }
   }
+}
+
+/**
+ * Concatenate two vectors
+ * O(log n) with RRB-Tree merging strategy
+ */
+export function concat<T>(left: VectorRoot<T>, right: VectorRoot<T>): VectorRoot<T> {
+  // Empty cases
+  if (left.size === 0) return right;
+  if (right.size === 0) return left;
+
+  // Small vectors: use naive approach
+  if (left.size + right.size < 10000) {
+    return concatNaive(left, right);
+  }
+
+  // Large vectors: use RRB-Tree merge
+  return concatRRB(left, right);
+}
+
+/**
+ * Naive concat for small vectors (O(n) but fast for small n)
+ */
+function concatNaive<T>(left: VectorRoot<T>, right: VectorRoot<T>): VectorRoot<T> {
+  let result = left;
+
+  // Push all elements from right vector
+  for (const value of iterate(right)) {
+    result = push(result, value);
+  }
+
+  return result;
+}
+
+/**
+ * RRB-Tree concat (O(log n))
+ * Merges two trees by creating a middle node and rebalancing
+ */
+function concatRRB<T>(left: VectorRoot<T>, right: VectorRoot<T>): VectorRoot<T> {
+  // Flush both tails into trees
+  const leftFlushed = flushTail(left);
+  const rightFlushed = flushTail(right);
+
+  // Merge the complete trees
+  const { root: mergedRoot, shift: mergedShift } = leftFlushed.root && rightFlushed.root
+    ? mergeTrees(leftFlushed.root, leftFlushed.shift, rightFlushed.root, rightFlushed.shift)
+    : leftFlushed.root
+      ? { root: leftFlushed.root, shift: leftFlushed.shift }
+      : { root: rightFlushed.root!, shift: rightFlushed.shift };
+
+  const totalSize = left.size + right.size;
+
+  // Return with empty tail - tail buffer will be rebuilt during subsequent operations
+  // This avoids complex tail extraction logic and ensures correctness
+  return {
+    root: mergedRoot,
+    tail: [],
+    size: totalSize,
+    shift: mergedShift,
+  };
+}
+
+/**
+ * Flush tail into tree structure
+ */
+function flushTail<T>(vec: VectorRoot<T>): VectorRoot<T> {
+  if (vec.tail.length === 0) {
+    return vec;
+  }
+
+  const tailLeaf: LeafNode<T> = { type: 'leaf', array: vec.tail };
+  const result = pushTail(vec.root, vec.tail, vec.shift);
+
+  return {
+    root: result.root,
+    tail: [],
+    size: vec.size,
+    shift: result.shift,
+  };
+}
+
+/**
+ * Merge two trees of potentially different heights
+ * Returns merged root and new shift value
+ */
+function mergeTrees<T>(
+  leftRoot: VectorNode<T> | null,
+  leftShift: number,
+  rightRoot: VectorNode<T> | null,
+  rightShift: number
+): { root: VectorNode<T>; shift: number } {
+  if (!leftRoot && !rightRoot) {
+    throw new Error('Cannot merge two null trees');
+  }
+
+  if (!leftRoot) return { root: rightRoot!, shift: rightShift };
+  if (!rightRoot) return { root: leftRoot, shift: leftShift };
+
+  // Same height: merge at current level
+  if (leftShift === rightShift) {
+    return mergeNodesAtLevel(leftRoot, rightRoot, leftShift);
+  }
+
+  // Left tree is taller: recurse on right edge of left tree
+  if (leftShift > rightShift) {
+    if (leftRoot.type === 'branch' || leftRoot.type === 'relaxed') {
+      const lastIndex = leftRoot.array.length - 1;
+      const lastChild = leftRoot.array[lastIndex];
+
+      if (!lastChild) {
+        // Replace last null with right tree
+        const newArray = [...leftRoot.array];
+        newArray[lastIndex] = rightRoot;
+        return { root: createBranch(newArray, null), shift: leftShift };
+      }
+
+      // Recurse
+      const merged = mergeTrees(lastChild, leftShift - BITS, rightRoot, rightShift);
+      const newArray = [...leftRoot.array];
+      newArray[lastIndex] = merged.root;
+
+      return { root: createBranch(newArray, null), shift: leftShift };
+    }
+  }
+
+  // Right tree is taller: recurse on left edge of right tree
+  if (rightShift > leftShift) {
+    if (rightRoot.type === 'branch' || rightRoot.type === 'relaxed') {
+      const firstChild = rightRoot.array[0];
+
+      if (!firstChild) {
+        // Replace first null with left tree
+        const newArray = [...rightRoot.array];
+        newArray[0] = leftRoot;
+        return { root: createBranch(newArray, null), shift: rightShift };
+      }
+
+      // Recurse
+      const merged = mergeTrees(leftRoot, leftShift, firstChild, rightShift - BITS);
+      const newArray = [...rightRoot.array];
+      newArray[0] = merged.root;
+
+      return { root: createBranch(newArray, null), shift: rightShift };
+    }
+  }
+
+  // Shouldn't reach here
+  throw new Error('Unexpected merge case');
+}
+
+/**
+ * Merge two nodes at the same level
+ */
+function mergeNodesAtLevel<T>(
+  left: VectorNode<T>,
+  right: VectorNode<T>,
+  shift: number
+): { root: VectorNode<T>; shift: number } {
+  // Both are leaves: combine into branch
+  if (left.type === 'leaf' && right.type === 'leaf') {
+    const branch: BranchNode<T> = {
+      type: 'branch',
+      array: [left, right],
+    };
+    return { root: branch, shift: shift + BITS };
+  }
+
+  // Get children arrays
+  const leftChildren = getChildren(left);
+  const rightChildren = getChildren(right);
+
+  // Merge children
+  const merged = [...leftChildren, ...rightChildren];
+
+  // Rebalance if needed
+  const rebalanced = rebalanceChildren(merged, shift);
+
+  // If result fits in one node, return it
+  if (rebalanced.length <= BRANCH_SIZE) {
+    return { root: createBranch(rebalanced, null), shift };
+  }
+
+  // Split into multiple nodes and increase height
+  const chunks: VectorNode<T>[][] = [];
+  for (let i = 0; i < rebalanced.length; i += BRANCH_SIZE) {
+    chunks.push(rebalanced.slice(i, i + BRANCH_SIZE));
+  }
+
+  const newLevel = chunks.map(chunk => createBranch(chunk, null));
+  return { root: createBranch(newLevel, null), shift: shift + BITS };
+}
+
+/**
+ * Get children array from any node type
+ */
+function getChildren<T>(node: VectorNode<T>): VectorNode<T>[] {
+  if (node.type === 'leaf') {
+    return [node];
+  }
+  return node.array.filter((child): child is VectorNode<T> => child !== null);
+}
+
+/**
+ * Rebalance children using E=2 invariant
+ *
+ * Invariant: number of slots S ≤ ⌈P/M⌉ + E
+ * where P = number of items, M = BRANCH_SIZE (32), E = 2
+ *
+ * This allows some flexibility in node sizes while bounding lookup cost
+ */
+function rebalanceChildren<T>(
+  children: VectorNode<T>[],
+  shift: number
+): VectorNode<T>[] {
+  const E_MAX = 2; // Relaxation factor
+  const MIN_SIZE = BRANCH_SIZE - Math.floor(E_MAX / 2); // 31
+
+  // If already balanced, return as-is
+  const totalSize = children.reduce((sum, child) => sum + nodeSize(child), 0);
+  const optimalNodes = Math.ceil(totalSize / BRANCH_SIZE);
+
+  if (children.length <= optimalNodes + E_MAX) {
+    return children;
+  }
+
+  // Rebalance: skip well-filled nodes, redistribute undersized ones
+  const result: VectorNode<T>[] = [];
+  let buffer: VectorNode<T>[] = [];
+  let bufferSize = 0;
+
+  for (const child of children) {
+    const size = nodeSize(child);
+
+    // Well-filled node: flush buffer and keep node
+    if (size >= MIN_SIZE) {
+      if (buffer.length > 0) {
+        result.push(...flushBuffer(buffer, shift));
+        buffer = [];
+        bufferSize = 0;
+      }
+      result.push(child);
+      continue;
+    }
+
+    // Undersized node: add to buffer
+    buffer.push(child);
+    bufferSize += size;
+
+    // Buffer full enough: flush it
+    if (bufferSize >= BRANCH_SIZE) {
+      result.push(...flushBuffer(buffer, shift));
+      buffer = [];
+      bufferSize = 0;
+    }
+  }
+
+  // Flush remaining buffer
+  if (buffer.length > 0) {
+    result.push(...flushBuffer(buffer, shift));
+  }
+
+  return result;
+}
+
+/**
+ * Flush buffer of undersized nodes into properly-sized nodes
+ */
+function flushBuffer<T>(buffer: VectorNode<T>[], shift: number): VectorNode<T>[] {
+  if (buffer.length === 0) return [];
+  if (buffer.length === 1) return buffer;
+
+  // Collect all items from buffer
+  const items: VectorNode<T>[] = [];
+  for (const node of buffer) {
+    items.push(...getChildren(node));
+  }
+
+  // Redistribute into properly-sized nodes
+  const result: VectorNode<T>[] = [];
+  for (let i = 0; i < items.length; i += BRANCH_SIZE) {
+    const chunk = items.slice(i, i + BRANCH_SIZE);
+    result.push(createBranch(chunk, null));
+  }
+
+  return result;
+}
+
+/**
+ * Get total size of node (number of elements)
+ */
+function nodeSize<T>(node: VectorNode<T>): number {
+  if (node.type === 'leaf') {
+    return node.array.length;
+  }
+
+  if (node.type === 'relaxed') {
+    // Use size table
+    return node.sizes[node.sizes.length - 1] ?? 0;
+  }
+
+  // Branch: sum of children
+  return node.array.reduce((sum, child) => {
+    return sum + (child ? nodeSize(child) : 0);
+  }, 0);
+}
+
+/**
+ * Create a branch or relaxed node from children
+ * Uses relaxed node if children have variable sizes
+ */
+function createBranch<T>(
+  children: VectorNode<T>[],
+  existingSizes: number[] | null
+): VectorNode<T> {
+  // Check if we need a relaxed node
+  if (existingSizes) {
+    const relaxed: RelaxedNode<T> = {
+      type: 'relaxed',
+      array: children,
+      sizes: existingSizes,
+    };
+    return relaxed;
+  }
+
+  // Check if children have uniform size
+  const sizes = children.map(child => nodeSize(child));
+  const firstSize = sizes[0];
+  const isUniform = sizes.every(size => size === firstSize);
+
+  if (isUniform) {
+    // Regular branch
+    const branch: BranchNode<T> = {
+      type: 'branch',
+      array: children,
+    };
+    return branch;
+  }
+
+  // Need relaxed node with size table
+  const cumulativeSizes: number[] = [];
+  let total = 0;
+  for (const size of sizes) {
+    total += size;
+    cumulativeSizes.push(total);
+  }
+
+  const relaxed: RelaxedNode<T> = {
+    type: 'relaxed',
+    array: children,
+    sizes: cumulativeSizes,
+  };
+  return relaxed;
 }

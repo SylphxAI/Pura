@@ -117,15 +117,10 @@ export class IList<T = any> implements IListInterface<T> {
 
   /**
    * Concatenate two lists (returns new list)
-   * O(n) currently - will be O(log n) with RRB-Tree rebalancing
+   * O(log n) with RRB-Tree rebalancing
    */
   concat(other: IList<T>): IList<T> {
-    // TODO: Implement O(log n) concat with RRB-Tree rebalancing
-    // For now: naive O(n) concatenation
-    let result = this.root;
-    for (const value of other) {
-      result = Vector.push(result, value);
-    }
+    const result = Vector.concat(this.root, other.root);
     return new IList(result);
   }
 
