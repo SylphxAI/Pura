@@ -118,6 +118,14 @@ describe('Reality Check: List Build-up (creating 1000-element list)', () => {
     }
   });
 
+  bench('IList Transient - build with Transient API', () => {
+    let list = IList.empty<number>().asTransient();
+    for (let i = 0; i < 1000; i++) {
+      list = list.push(i);
+    }
+    list.toPersistent();
+  });
+
   bench('IList Builder - build with Builder API', () => {
     const builder = IList.builder<number>();
     for (let i = 0; i < 1000; i++) {

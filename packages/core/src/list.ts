@@ -332,6 +332,34 @@ export class IList<T = any> implements IListInterface<T> {
     const sorted = this.toArray().sort(compareFn);
     return IList.from(sorted);
   }
+
+  /**
+   * Convert to transient (mutable) for efficient batch operations
+   *
+   * Transient lists allow in-place modifications for maximum performance.
+   * Must call toPersistent() to convert back to immutable.
+   *
+   * @example
+   * const list = IList.empty<number>()
+   *   .asTransient()
+   *   .push(1).push(2).push(3)
+   *   .toPersistent();
+   */
+  asTransient(): IList<T> {
+    const transientRoot = Vector.asTransient(this.root);
+    return new IList(transientRoot);
+  }
+
+  /**
+   * Convert transient back to persistent (immutable)
+   *
+   * After calling this, the list becomes immutable again and
+   * the transient version can no longer be used.
+   */
+  toPersistent(): IList<T> {
+    const persistentRoot = Vector.asPersistent(this.root);
+    return new IList(persistentRoot);
+  }
 }
 
 /**

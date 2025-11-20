@@ -23,11 +23,18 @@ const MAX_TAIL_SIZE = BRANCH_SIZE; // Tail buffer size
 export type VectorNode<T> = LeafNode<T> | BranchNode<T>;
 
 /**
+ * Edit token for transient modifications
+ * When a node has this edit token, it can be mutated in-place
+ */
+type Edit = { _brand: 'edit' };
+
+/**
  * Leaf node: stores actual values
  */
 export interface LeafNode<T> {
   type: 'leaf';
   array: T[];
+  edit?: Edit; // Transient edit token
 }
 
 /**
@@ -36,6 +43,7 @@ export interface LeafNode<T> {
 export interface BranchNode<T> {
   type: 'branch';
   array: (VectorNode<T> | null)[];
+  edit?: Edit; // Transient edit token
 }
 
 /**
@@ -46,6 +54,7 @@ export interface RelaxedNode<T> {
   type: 'relaxed';
   array: (VectorNode<T> | null)[];
   sizes: number[]; // Cumulative sizes for each child
+  edit?: Edit; // Transient edit token
 }
 
 /**
@@ -56,6 +65,7 @@ export interface VectorRoot<T> {
   tail: T[];
   size: number;
   shift: number; // Tree depth in bits (0, 5, 10, 15, ...)
+  edit?: Edit; // Transient edit token
 }
 
 /**
@@ -68,6 +78,31 @@ export function empty<T>(): VectorRoot<T> {
     size: 0,
     shift: BITS,
   };
+}
+
+/**
+ * Create transient (mutable) vector for batch operations
+ * Returns a new vector with edit token
+ */
+export function asTransient<T>(vec: VectorRoot<T>): VectorRoot<T> {
+  const edit: Edit = { _brand: 'edit' };
+  return { ...vec, edit };
+}
+
+/**
+ * Convert transient vector back to persistent (immutable)
+ * Clears edit token to prevent further mutations
+ */
+export function asPersistent<T>(vec: VectorRoot<T>): VectorRoot<T> {
+  const { edit, ...persistent } = vec;
+  return persistent as VectorRoot<T>;
+}
+
+/**
+ * Check if vector is transient
+ */
+function isTransient<T>(vec: VectorRoot<T>): boolean {
+  return vec.edit !== undefined;
 }
 
 /**
@@ -238,25 +273,63 @@ function setInNode<T>(
 /**
  * Push value to end (returns new vector)
  * O(1) amortized with tail buffer
+ * If vector is transient, modifies in-place for performance
  */
 export function push<T>(vec: VectorRoot<T>, value: T): VectorRoot<T> {
-  // Tail has space: O(1) copy
+  const edit = vec.edit;
+
+  // Tail has space
   if (vec.tail.length < MAX_TAIL_SIZE) {
-    return {
-      ...vec,
-      tail: [...vec.tail, value],
-      size: vec.size + 1,
-    };
+    if (edit) {
+      // Transient: mutate in-place
+      vec.tail.push(value);
+      vec.size++;
+      return vec;
+    } else {
+      // Persistent: copy
+      return {
+        ...vec,
+        tail: [...vec.tail, value],
+        size: vec.size + 1,
+      };
+    }
   }
 
   // Tail full: push tail into tree, start new tail
-  const newRoot = pushTail(vec.root, vec.tail, vec.shift);
-  return {
-    root: newRoot.root,
-    tail: [value],
-    size: vec.size + 1,
-    shift: newRoot.shift,
-  };
+  const newRoot = edit
+    ? pushTailMut(vec.root, vec.tail, vec.shift, edit)
+    : pushTail(vec.root, vec.tail, vec.shift);
+
+  if (edit) {
+    // Transient: mutate in-place
+    vec.root = newRoot.root;
+    vec.shift = newRoot.shift;
+    vec.tail = [value];
+    vec.size++;
+    return vec;
+  } else {
+    // Persistent: return new
+    return {
+      root: newRoot.root,
+      tail: [value],
+      size: vec.size + 1,
+      shift: newRoot.shift,
+    };
+  }
+}
+
+/**
+ * Push tail into tree structure (mutable version for transients)
+ */
+function pushTailMut<T>(
+  root: VectorNode<T> | null,
+  tail: T[],
+  shift: number,
+  edit: Edit,
+): { root: VectorNode<T>; shift: number } {
+  // For now, delegate to immutable version
+  // TODO: Optimize with true mutable tree operations
+  return pushTail(root, tail, shift);
 }
 
 /**
