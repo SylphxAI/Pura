@@ -1004,9 +1004,108 @@ function vecConcat<T>(left: Vec<T>, right: Vec<T>, owner: Owner): Vec<T> {
   };
 }
 
-// Slice a vector - O(log n)
+// Slice left side of tree - keep elements from index onwards
+function sliceLeftTree<T>(node: Node<T>, level: number, index: number, owner: Owner): Node<T> | null {
+  if (level === 0) {
+    // Leaf node - slice the array
+    const arr = node.arr as T[];
+    if (index >= arr.length) return null;
+    if (index === 0) return node;
+    return { owner, arr: arr.slice(index) };
+  }
+
+  const children = node.arr as Node<T>[];
+  let childIdx: number;
+  let subIndex: number;
+
+  if (node.sizes) {
+    // Relaxed node
+    const r = relaxedChildIndex(node, index);
+    childIdx = r.childIdx;
+    subIndex = r.subIndex;
+  } else {
+    // Regular node
+    const subtreeSize = 1 << level;
+    childIdx = Math.floor(index / subtreeSize);
+    subIndex = index % subtreeSize;
+  }
+
+  if (childIdx >= children.length) return null;
+
+  const newChildren: Node<T>[] = [];
+
+  // Process first child (may be partial)
+  const firstChild = sliceLeftTree(children[childIdx]!, level - BITS, subIndex, owner);
+  if (firstChild) newChildren.push(firstChild);
+
+  // Keep all children after
+  for (let i = childIdx + 1; i < children.length; i++) {
+    newChildren.push(children[i]!);
+  }
+
+  if (newChildren.length === 0) return null;
+  if (newChildren.length === 1 && !firstChild) return newChildren[0]!;
+
+  // Create relaxed node since first child may not be full
+  return makeRelaxedNode(owner, newChildren, level);
+}
+
+// Slice right side of tree - keep elements up to (not including) index
+function sliceRightTree<T>(node: Node<T>, level: number, index: number, owner: Owner): Node<T> | null {
+  if (level === 0) {
+    // Leaf node
+    const arr = node.arr as T[];
+    if (index <= 0) return null;
+    if (index >= arr.length) return node;
+    return { owner, arr: arr.slice(0, index) };
+  }
+
+  const children = node.arr as Node<T>[];
+  let childIdx: number;
+  let subIndex: number;
+
+  if (node.sizes) {
+    // Relaxed node
+    const r = relaxedChildIndex(node, index - 1); // index-1 because we want up to index
+    childIdx = r.childIdx;
+    subIndex = r.subIndex + 1; // +1 to include this element
+  } else {
+    // Regular node
+    const subtreeSize = 1 << level;
+    childIdx = Math.floor((index - 1) / subtreeSize);
+    subIndex = ((index - 1) % subtreeSize) + 1;
+  }
+
+  if (childIdx < 0) return null;
+
+  const newChildren: Node<T>[] = [];
+
+  // Keep all children before
+  for (let i = 0; i < childIdx; i++) {
+    newChildren.push(children[i]!);
+  }
+
+  // Process last child (may be partial)
+  if (childIdx < children.length) {
+    const lastChild = sliceRightTree(children[childIdx]!, level - BITS, subIndex, owner);
+    if (lastChild) newChildren.push(lastChild);
+  }
+
+  if (newChildren.length === 0) return null;
+
+  // Check if we need a size table
+  const needsSizes = newChildren.length > 1 &&
+    newChildren.slice(0, -1).some((c, i) => nodeSize(c, level - BITS) !== (1 << (level - BITS)));
+
+  if (needsSizes) {
+    return makeRelaxedNode(owner, newChildren, level);
+  }
+  return { owner, arr: newChildren };
+}
+
+// Slice a vector - O(log n) for most cases
 function vecSlice<T>(vec: Vec<T>, start: number, end: number, owner: Owner): Vec<T> {
-  const { count } = vec;
+  const { count, shift, root, tail, treeCount } = vec;
 
   // Normalize indices
   if (start < 0) start = Math.max(0, count + start);
@@ -1016,8 +1115,8 @@ function vecSlice<T>(vec: Vec<T>, start: number, end: number, owner: Owner): Vec
 
   const newCount = end - start;
 
-  // Small result - just copy
-  if (newCount <= BRANCH_FACTOR * 2) {
+  // Small result - just copy (faster for small slices)
+  if (newCount <= BRANCH_FACTOR) {
     const result: T[] = [];
     for (let i = start; i < end; i++) {
       result.push(vecGet(vec, i) as T);
@@ -1025,14 +1124,84 @@ function vecSlice<T>(vec: Vec<T>, start: number, end: number, owner: Owner): Vec
     return vecFromArray(result);
   }
 
-  // For larger slices, we need proper tree surgery
-  // This is a simplified implementation that's still O(n) for complex cases
-  // Full RRB slice is quite complex
-  const result: T[] = [];
-  for (let i = start; i < end; i++) {
-    result.push(vecGet(vec, i) as T);
+  // If slice is entirely in tail
+  if (start >= treeCount) {
+    return {
+      count: newCount,
+      shift: BITS,
+      root: emptyNode<T>(),
+      tail: tail.slice(start - treeCount, end - treeCount),
+      treeCount: 0,
+      tailOwner: owner,
+    };
   }
-  return vecFromArray(result);
+
+  // If slice ends before tail
+  if (end <= treeCount) {
+    // Slice the tree
+    let slicedRoot = sliceLeftTree(root, shift, start, owner);
+    if (!slicedRoot) return emptyVec<T>();
+
+    slicedRoot = sliceRightTree(slicedRoot, shift, end - start, owner);
+    if (!slicedRoot) return emptyVec<T>();
+
+    // Normalize the tree (remove single-child roots)
+    let newShift = shift;
+    while (newShift > BITS && slicedRoot.arr.length === 1 && !slicedRoot.sizes) {
+      slicedRoot = slicedRoot.arr[0] as Node<T>;
+      newShift -= BITS;
+    }
+
+    return {
+      count: newCount,
+      shift: newShift,
+      root: slicedRoot,
+      tail: [],
+      treeCount: newCount,
+      tailOwner: owner,
+    };
+  }
+
+  // Slice spans tree and tail
+  const treeEnd = treeCount;
+  const tailStart = Math.max(0, start - treeCount);
+  const tailEnd = end - treeCount;
+
+  // Get tree portion
+  let treeSlice: Vec<T>;
+  if (start < treeCount) {
+    let slicedRoot = sliceLeftTree(root, shift, start, owner);
+    if (slicedRoot) {
+      let newShift = shift;
+      while (newShift > BITS && slicedRoot.arr.length === 1 && !slicedRoot.sizes) {
+        slicedRoot = slicedRoot.arr[0] as Node<T>;
+        newShift -= BITS;
+      }
+      treeSlice = {
+        count: treeCount - start,
+        shift: newShift,
+        root: slicedRoot,
+        tail: [],
+        treeCount: treeCount - start,
+      };
+    } else {
+      treeSlice = emptyVec<T>();
+    }
+  } else {
+    treeSlice = emptyVec<T>();
+  }
+
+  // Combine with tail portion
+  const newTail = tail.slice(tailStart, tailEnd);
+
+  return {
+    count: treeSlice.count + newTail.length,
+    shift: treeSlice.shift,
+    root: treeSlice.root,
+    tail: newTail,
+    treeCount: treeSlice.treeCount,
+    tailOwner: owner,
+  };
 }
 
 // =====================================================
