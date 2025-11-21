@@ -942,6 +942,35 @@ function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
         case 'toJSON':
           return getCachedMethod('toJSON', () => () => vecToArray(state.vec));
 
+        case 'toString':
+          return () => {
+            // Same as join(',')
+            let result = '';
+            let first = true;
+            for (const v of vecIter(state.vec)) {
+              if (!first) result += ',';
+              first = false;
+              result += v == null ? '' : String(v);
+            }
+            return result;
+          };
+
+        case 'toLocaleString':
+          return (...args: any[]) => {
+            let result = '';
+            let first = true;
+            for (const v of vecIter(state.vec)) {
+              if (!first) result += ',';
+              first = false;
+              if (v != null && typeof (v as any).toLocaleString === 'function') {
+                result += (v as any).toLocaleString(...args);
+              } else {
+                result += v == null ? '' : String(v);
+              }
+            }
+            return result;
+          };
+
         case Symbol.iterator:
           return function* () {
             const v = state.vec;
