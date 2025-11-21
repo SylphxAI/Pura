@@ -779,6 +779,8 @@ interface PuraArrayState<T> {
   proxies?: Map<number, any>;
   cachedLeaf?: T[];
   cachedLeafStart?: number;
+  // Cached method closures to avoid re-allocation on each access
+  methodCache?: Map<string | symbol, Function>;
 }
 
 const ARRAY_STATE_ENV = new WeakMap<any[], PuraArrayState<any>>();
@@ -816,6 +818,10 @@ function vecGetCached<T>(state: PuraArrayState<T>, index: number): T | undefined
 function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
   if (state.isDraft) {
     state.proxies = new Map();
+  }
+  // Initialize method cache for non-draft proxies (read-heavy)
+  if (!state.isDraft) {
+    state.methodCache = new Map();
   }
 
   const proxy = new Proxy([] as T[], {
@@ -866,6 +872,17 @@ function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
         }
       }
 
+      // Helper to cache method closures (only for non-draft, read-only methods)
+      const getCachedMethod = (key: string | symbol, factory: () => Function): Function => {
+        if (!state.methodCache) return factory();
+        let fn = state.methodCache.get(key);
+        if (!fn) {
+          fn = factory();
+          state.methodCache.set(key, fn);
+        }
+        return fn;
+      };
+
       switch (prop) {
         case 'push':
           return (...items: T[]) => {
@@ -889,7 +906,7 @@ function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
           };
 
         case 'toJSON':
-          return () => vecToArray(state.vec);
+          return getCachedMethod('toJSON', () => () => vecToArray(state.vec));
 
         case Symbol.iterator:
           return function* () {
