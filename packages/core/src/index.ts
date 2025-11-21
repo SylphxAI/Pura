@@ -1156,9 +1156,9 @@ function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
             if (s >= e) return [];
             const resultLen = e - s;
             const result = new Array(resultLen);
-            // Use vecGet directly for random access (O(log32 n) per access)
+            // Use vecGetCached for sequential access with leaf caching
             for (let i = 0; i < resultLen; i++) {
-              result[i] = vecGet(state.vec, s + i);
+              result[i] = vecGetCached(state, s + i);
             }
             return result;
           };
