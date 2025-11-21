@@ -1811,14 +1811,8 @@ function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
           return () => {
             if (state.vec.count === 0) return undefined;
             const first = vecGetCached(state, 0);
-            // Rebuild vec without first element (use cache for sequential read)
-            const len = state.vec.count;
-            let newVec = emptyVec<T>();
-            const owner: Owner = {};
-            for (let i = 1; i < len; i++) {
-              newVec = vecPush(newVec, owner, vecGetCached(state, i) as T);
-            }
-            state.vec = newVec;
+            // Use O(log n) vecSlice instead of O(n) rebuild
+            state.vec = vecSlice(state.vec, state.owner, 1, state.vec.count);
             state.modified = true;
             state.cachedLeaf = undefined;
             state.proxies?.clear();
@@ -1828,19 +1822,13 @@ function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
         case 'unshift':
           return (...items: T[]) => {
             if (items.length === 0) return state.vec.count;
-            // Rebuild vec with items prepended
-            const len = state.vec.count;
-            let newVec = emptyVec<T>();
+            // Build prefix vec then concat with existing - O(log n) instead of O(n)
             const owner: Owner = {};
-            // Add new items first
+            let prefixVec = emptyVec<T>();
             for (const item of items) {
-              newVec = vecPush(newVec, owner, item);
+              prefixVec = vecPush(prefixVec, owner, item);
             }
-            // Then add existing items
-            for (const v of vecIter(state.vec)) {
-              newVec = vecPush(newVec, owner, v);
-            }
-            state.vec = newVec;
+            state.vec = vecConcat(prefixVec, state.vec, owner);
             state.modified = true;
             state.cachedLeaf = undefined;
             state.proxies?.clear();
@@ -1859,20 +1847,24 @@ function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
               deleted.push(vecGetCached(state, s + i) as T);
             }
 
-            // Rebuild vec
-            let newVec = emptyVec<T>();
+            // Use O(log n) vecSlice + vecConcat instead of O(n) rebuild
             const owner: Owner = {};
-            // Copy items before start (use cache for sequential access)
-            for (let i = 0; i < s; i++) {
-              newVec = vecPush(newVec, owner, vecGetCached(state, i) as T);
-            }
-            // Insert new items
+            const left = s > 0 ? vecSlice(state.vec, owner, 0, s) : emptyVec<T>();
+            const right = s + dc < len ? vecSlice(state.vec, owner, s + dc, len) : emptyVec<T>();
+
+            // Build middle section with inserted items
+            let middle = emptyVec<T>();
             for (const item of items) {
-              newVec = vecPush(newVec, owner, item);
+              middle = vecPush(middle, owner, item);
             }
-            // Copy items after deleted section (use cache for sequential access)
-            for (let i = s + dc; i < len; i++) {
-              newVec = vecPush(newVec, owner, vecGetCached(state, i) as T);
+
+            // Concat: left + middle + right
+            let newVec = left;
+            if (middle.count > 0) {
+              newVec = vecConcat(newVec, middle, owner);
+            }
+            if (right.count > 0) {
+              newVec = vecConcat(newVec, right, owner);
             }
 
             state.vec = newVec;
@@ -2702,15 +2694,55 @@ function orderUpdateValue<K, V>(ord: OrderIndex<K, V>, owner: Owner, key: K, val
   };
 }
 
+// Compaction threshold: compact when holes > 50% of total slots
+const ORDER_COMPACT_RATIO = 0.5;
+
 function orderDelete<K, V>(ord: OrderIndex<K, V>, owner: Owner, key: K): OrderIndex<K, V> {
   const idx = hamtGet(ord.keyToIdx, key);
   if (idx === undefined) return ord;
-  return {
+  const newHoles = ord.holes + 1;
+  const result: OrderIndex<K, V> = {
     next: ord.next,
     keyToIdx: hamtDelete(ord.keyToIdx, owner, key),
     idxToKey: vecAssoc(ord.idxToKey, owner, idx, DELETED),
     idxToVal: ord.idxToVal ? vecAssoc(ord.idxToVal, owner, idx, DELETED) : undefined,
-    holes: ord.holes + 1,
+    holes: newHoles,
+  };
+  // Auto-compact when holes exceed threshold
+  if (newHoles > ord.next * ORDER_COMPACT_RATIO && ord.next > 32) {
+    return orderCompact(result, owner);
+  }
+  return result;
+}
+
+// Rebuild OrderIndex without holes (O(n) where n = current size)
+function orderCompact<K, V>(ord: OrderIndex<K, V>, owner: Owner): OrderIndex<K, V> {
+  if (ord.holes === 0) return ord;
+  let newKeyToIdx = hamtEmpty<K, number>();
+  const newKeys: (K | typeof DELETED)[] = [];
+  const newVals: (V | typeof DELETED)[] | undefined = ord.idxToVal ? [] : undefined;
+  let newIdx = 0;
+
+  // Iterate through keys and values in parallel
+  const keyLen = ord.idxToKey.count;
+  for (let i = 0; i < keyLen; i++) {
+    const k = vecGet(ord.idxToKey, i);
+    if (k !== DELETED) {
+      newKeyToIdx = hamtSet(newKeyToIdx, owner, k as K, newIdx);
+      newKeys.push(k as K);
+      if (newVals && ord.idxToVal) {
+        newVals.push(vecGet(ord.idxToVal, i) as V);
+      }
+      newIdx++;
+    }
+  }
+
+  return {
+    next: newIdx,
+    keyToIdx: newKeyToIdx,
+    idxToKey: vecFromArray(newKeys),
+    idxToVal: newVals ? vecFromArray(newVals) : undefined,
+    holes: 0,
   };
 }
 
