@@ -417,6 +417,7 @@ interface Vec<T> {
   root: Node<T>;
   tail: T[];
   treeCount: number; // count - tail.length
+  tailOwner?: Owner; // For lazy tail copy - if set, tail can be mutated by this owner
 }
 
 function emptyNode<T>(): Node<T> {
@@ -476,12 +477,17 @@ function pushTail<T>(
 }
 
 function vecPush<T>(vec: Vec<T>, owner: Owner, val: T): Vec<T> {
-  const { count, shift, root, tail, treeCount } = vec;
+  const { count, shift, root, tail, treeCount, tailOwner } = vec;
 
   if (tail.length < BRANCH_FACTOR) {
-    if (owner) {
+    // Can mutate tail if owner matches tailOwner
+    if (owner && tailOwner === owner) {
       tail.push(val);
-      return { count: count + 1, shift, root, tail, treeCount };
+      return { count: count + 1, shift, root, tail, treeCount, tailOwner };
+    } else if (owner) {
+      // Need to copy tail and set ownership
+      const newTail = [...tail, val];
+      return { count: count + 1, shift, root, tail: newTail, treeCount, tailOwner: owner };
     } else {
       return {
         count: count + 1,
@@ -508,6 +514,7 @@ function vecPush<T>(vec: Vec<T>, owner: Owner, val: T): Vec<T> {
       root: newRoot,
       tail: newTail,
       treeCount: newTreeCount,
+      tailOwner: owner,
     };
   }
 
@@ -518,20 +525,27 @@ function vecPush<T>(vec: Vec<T>, owner: Owner, val: T): Vec<T> {
     root: newRoot,
     tail: newTail,
     treeCount: newTreeCount,
+    tailOwner: owner,
   };
 }
 
 function vecAssoc<T>(vec: Vec<T>, owner: Owner, index: number, val: T): Vec<T> {
-  const { count, shift, root, tail, treeCount } = vec;
+  const { count, shift, root, tail, treeCount, tailOwner } = vec;
   if (index < 0 || index >= count) {
     throw new RangeError('Index out of bounds');
   }
 
   if (index >= treeCount) {
     const tailIdx = index - treeCount;
-    if (owner) {
+    // Can mutate tail if owner matches tailOwner
+    if (owner && tailOwner === owner) {
       tail[tailIdx] = val;
       return vec;
+    } else if (owner) {
+      // Need to copy tail and set ownership
+      const newTail = tail.slice();
+      newTail[tailIdx] = val;
+      return { count, shift, root, tail: newTail, treeCount, tailOwner: owner };
     }
     const newTail = tail.slice();
     newTail[tailIdx] = val;
@@ -593,7 +607,7 @@ function popTailFromTree<T>(
 }
 
 function vecPop<T>(vec: Vec<T>, owner: Owner): { vec: Vec<T>; val: T | undefined } {
-  const { count, root, tail, shift, treeCount } = vec;
+  const { count, root, tail, shift, treeCount, tailOwner } = vec;
   if (count === 0) return { vec, val: undefined };
 
   if (count === 1) {
@@ -602,9 +616,14 @@ function vecPop<T>(vec: Vec<T>, owner: Owner): { vec: Vec<T>; val: T | undefined
 
   if (tail.length > 0) {
     const val = tail[tail.length - 1];
-    if (owner) {
+    // Can mutate tail if owner matches tailOwner
+    if (owner && tailOwner === owner) {
       tail.pop();
-      return { vec: { count: count - 1, shift, root, tail, treeCount }, val };
+      return { vec: { count: count - 1, shift, root, tail, treeCount, tailOwner }, val };
+    } else if (owner) {
+      // Need to copy tail and set ownership
+      const newTail = tail.slice(0, -1);
+      return { vec: { count: count - 1, shift, root, tail: newTail, treeCount, tailOwner: owner }, val };
     } else {
       return {
         vec: {
@@ -1584,12 +1603,14 @@ function produceArray<T>(base: T[], recipe: (draft: T[]) => void): T[] {
   const baseVec = baseState ? baseState.vec : vecFromArray(base);
 
   const draftOwner: Owner = {};
+  // Lazy tail copy - tail shared initially, copied on first mutation
   const draftVec: Vec<T> = {
     count: baseVec.count,
     shift: baseVec.shift,
     root: baseVec.root,
-    tail: baseVec.tail.slice(),
+    tail: baseVec.tail,
     treeCount: baseVec.treeCount,
+    // tailOwner not set - first mutation will copy and set ownership
   };
 
   const draftState: PuraArrayState<T> = {
