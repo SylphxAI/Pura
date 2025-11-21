@@ -1105,8 +1105,20 @@ function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
             return result;
           };
 
-        case 'concat':
         case 'join':
+          return (separator?: string) => {
+            const sep = separator === undefined ? ',' : separator;
+            let result = '';
+            let first = true;
+            for (const v of vecIter(state.vec)) {
+              if (!first) result += sep;
+              first = false;
+              result += v == null ? '' : String(v);
+            }
+            return result;
+          };
+
+        case 'concat':
           return (...args: any[]) => {
             const arr = vecToArray(state.vec) as any;
             const fn = arr[prop as keyof any];
