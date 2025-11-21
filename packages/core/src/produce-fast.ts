@@ -397,6 +397,157 @@ function deleteIn<T>(obj: T, path: readonly (string | number)[]): T {
 }
 
 /**
+ * Mutation tree node for optimized batch application
+ */
+interface MutationTreeNode {
+  value?: any;
+  action?: 'set' | 'delete';
+  children?: Map<string | number, MutationTreeNode>;
+}
+
+/**
+ * Build mutation tree from mutations list
+ * Merges multiple mutations on same path automatically
+ */
+function buildMutationTree(base: any, mutations: ObjectMutation[]): MutationTreeNode {
+  const root: MutationTreeNode = { children: new Map() };
+
+  for (const mutation of mutations) {
+    let node = root;
+    const path = mutation.path;
+
+    // Navigate to the target node, creating nodes as needed
+    for (let i = 0; i < path.length; i++) {
+      const key = path[i];
+      if (!node.children) {
+        node.children = new Map();
+      }
+
+      if (!node.children.has(key)) {
+        node.children.set(key, { children: new Map() });
+      }
+
+      node = node.children.get(key)!;
+    }
+
+    // Apply mutation at this node
+    switch (mutation.type) {
+      case 'set':
+        node.value = mutation.value;
+        node.action = 'set';
+        node.children = undefined; // Leaf node - override any nested changes
+        break;
+      case 'update': {
+        const currentValue = getIn(base, path);
+        node.value = mutation.updater(currentValue);
+        node.action = 'set';
+        node.children = undefined;
+        break;
+      }
+      case 'delete':
+        node.action = 'delete';
+        node.children = undefined;
+        break;
+      case 'merge': {
+        const currentValue = getIn(base, path);
+        node.value = { ...currentValue, ...mutation.value };
+        node.action = 'set';
+        node.children = undefined;
+        break;
+      }
+    }
+  }
+
+  return root;
+}
+
+/**
+ * Apply mutation tree to object (single traversal)
+ * Uses structural sharing - unchanged parts reference original
+ */
+function applyMutationTree<T>(base: T, tree: MutationTreeNode): T {
+  // Leaf node - return value directly
+  if (!tree.children || tree.children.size === 0) {
+    if (tree.action === 'delete') {
+      return undefined as any;
+    }
+    if (tree.action === 'set') {
+      return tree.value;
+    }
+    return base;
+  }
+
+  // Branch node - recursively build object
+  if (Array.isArray(base)) {
+    const result = [...base];
+    let modified = false;
+
+    for (const [key, childTree] of tree.children) {
+      const index = key as number;
+      const oldValue = result[index];
+      const newValue = applyMutationTree(oldValue, childTree);
+
+      if (newValue !== oldValue) {
+        if (childTree.action === 'delete') {
+          delete result[index];
+        } else {
+          result[index] = newValue;
+        }
+        modified = true;
+      }
+    }
+
+    if (!modified) return base;
+
+    // Filter out deleted items (compact array)
+    return result.filter((_, i) => i in result) as any;
+  }
+
+  // Object - use spread for better performance
+  const changes: Record<string | number, any> = {};
+  const deletes = new Set<string | number>();
+  let hasChanges = false;
+
+  for (const [key, childTree] of tree.children) {
+    if (childTree.action === 'delete') {
+      deletes.add(key);
+      hasChanges = true;
+    } else {
+      const oldValue = (base as any)[key];
+      const newValue = applyMutationTree(oldValue, childTree);
+
+      if (newValue !== oldValue) {
+        changes[key] = newValue;
+        hasChanges = true;
+      }
+    }
+  }
+
+  if (!hasChanges) return base;
+
+  // Build result object
+  if (deletes.size === 0) {
+    // No deletes - simple spread
+    return { ...base, ...changes } as T;
+  }
+
+  // Has deletes - filter keys
+  const result: any = {};
+  for (const key in base) {
+    if (!deletes.has(key)) {
+      result[key] = key in changes ? changes[key] : (base as any)[key];
+    }
+  }
+  for (const key in changes) {
+    if (!(key in base)) {
+      result[key] = changes[key];
+    }
+  }
+
+  return result as T;
+}
+
+/**
  * Optimized batch application of mutations
  */
 function applyMutationsBatch<T extends object>(
@@ -498,34 +649,9 @@ function applyMutationsBatch<T extends object>(
     return result as T;
   }
 
-  // Deep mutations - apply sequentially (for now)
-  // TODO: Optimize deep mutation batching
-  let result = base;
-
-  for (const mutation of mutations) {
-    switch (mutation.type) {
-      case 'set':
-        result = setIn(result, mutation.path, mutation.value);
-        break;
-      case 'update': {
-        const oldValue = getIn(result, mutation.path);
-        const newValue = mutation.updater(oldValue);
-        result = setIn(result, mutation.path, newValue);
-        break;
-      }
-      case 'delete':
-        result = deleteIn(result, mutation.path);
-        break;
-      case 'merge': {
-        const currentValue = getIn(result, mutation.path);
-        const merged = { ...currentValue, ...mutation.value };
-        result = setIn(result, mutation.path, merged);
-        break;
-      }
-    }
-  }
-
-  return result;
+  // Deep mutations - use mutation tree for optimal performance
+  const tree = buildMutationTree(base, mutations);
+  return applyMutationTree(base, tree);
 }
 
 function produceFastObject<T extends object>(
