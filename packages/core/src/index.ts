@@ -12,6 +12,31 @@ const BITS = 5;
 const BRANCH_FACTOR = 1 << BITS;
 const MASK = BRANCH_FACTOR - 1;
 
+// =====================================================
+// Transient Node Pool - Safe recycling during produce()
+// =====================================================
+// Only used during transient operations (owner !== undefined)
+// where we know nodes won't be shared across versions
+
+const TRANSIENT_POOL: any[][] = [];
+const TRANSIENT_POOL_MAX = 64;
+
+function transientAlloc(size: number): any[] {
+  const arr = TRANSIENT_POOL.pop();
+  if (arr) {
+    arr.length = size;
+    return arr;
+  }
+  return new Array(size);
+}
+
+function transientFree(arr: any[]): void {
+  if (TRANSIENT_POOL.length < TRANSIENT_POOL_MAX) {
+    arr.length = 0; // Clear references
+    TRANSIENT_POOL.push(arr);
+  }
+}
+
 // Popcount helper for CHAMP bitmap operations
 function popcount(x: number): number {
   x -= (x >>> 1) & 0x55555555;
@@ -836,8 +861,17 @@ function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
       if (prop === 'length') return state.vec.count;
 
       if (typeof prop === 'string') {
-        const idx = Number(prop);
-        if (!Number.isNaN(idx)) {
+        // Fast path for common numeric indices (0-9999)
+        const c0 = prop.charCodeAt(0);
+        if (c0 >= 48 && c0 <= 57) { // '0' to '9'
+          const len = prop.length;
+          let idx = c0 - 48;
+          // Parse manually for speed (avoids Number() overhead)
+          for (let j = 1; j < len; j++) {
+            const c = prop.charCodeAt(j);
+            if (c < 48 || c > 57) { idx = -1; break; }
+            idx = idx * 10 + (c - 48);
+          }
           if (idx >= 0 && idx < state.vec.count) {
             const cachedProxy = state.proxies?.get(idx);
             if (cachedProxy) return cachedProxy;
@@ -1335,8 +1369,16 @@ function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
       }
 
       if (typeof prop === 'string') {
-        const idx = Number(prop);
-        if (!Number.isNaN(idx)) {
+        // Fast path for numeric indices
+        const c0 = prop.charCodeAt(0);
+        if (c0 >= 48 && c0 <= 57) { // '0' to '9'
+          const len = prop.length;
+          let idx = c0 - 48;
+          for (let j = 1; j < len; j++) {
+            const c = prop.charCodeAt(j);
+            if (c < 48 || c > 57) { idx = -1; break; }
+            idx = idx * 10 + (c - 48);
+          }
           if (idx >= 0) {
             if (idx < state.vec.count) {
               state.vec = vecAssoc(state.vec, state.owner, idx, value);
