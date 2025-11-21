@@ -1252,12 +1252,16 @@ function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
           return (...reduceArgs: any[]) => {
             const fn = reduceArgs[0] as (acc: any, v: T, i: number, a: T[]) => any;
             const len = state.vec.count;
+            // Collect O(n) then iterate backwards (vs O(n log n) random access)
+            const values: T[] = [];
+            for (const v of vecIter(state.vec)) {
+              values.push(v);
+            }
             let acc: any;
             let started = reduceArgs.length > 1;
             if (started) acc = reduceArgs[1];
-            // Iterate backwards using vecGet (O(log n) per access)
             for (let i = len - 1; i >= 0; i--) {
-              const v = vecGet(state.vec, i) as T;
+              const v = values[i];
               if (!started) {
                 acc = v;
                 started = true;
@@ -1270,31 +1274,38 @@ function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
 
         case 'findLast':
           return (fn: (v: T, i: number, a: T[]) => boolean, thisArg?: any) => {
-            const len = state.vec.count;
-            for (let i = len - 1; i >= 0; i--) {
-              const v = vecGet(state.vec, i) as T;
-              if (fn.call(thisArg, v, i, proxy)) return v;
+            // Collect O(n) then iterate backwards (vs O(n log n) random access)
+            const values: T[] = [];
+            for (const v of vecIter(state.vec)) {
+              values.push(v);
+            }
+            for (let i = values.length - 1; i >= 0; i--) {
+              if (fn.call(thisArg, values[i], i, proxy)) return values[i];
             }
             return undefined;
           };
 
         case 'findLastIndex':
           return (fn: (v: T, i: number, a: T[]) => boolean, thisArg?: any) => {
-            const len = state.vec.count;
-            for (let i = len - 1; i >= 0; i--) {
-              const v = vecGet(state.vec, i) as T;
-              if (fn.call(thisArg, v, i, proxy)) return i;
+            // Collect O(n) then iterate backwards (vs O(n log n) random access)
+            const values: T[] = [];
+            for (const v of vecIter(state.vec)) {
+              values.push(v);
+            }
+            for (let i = values.length - 1; i >= 0; i--) {
+              if (fn.call(thisArg, values[i], i, proxy)) return i;
             }
             return -1;
           };
 
         case 'toReversed':
           return () => {
-            const len = state.vec.count;
-            const result = new Array(len);
-            for (let i = 0; i < len; i++) {
-              result[i] = vecGet(state.vec, len - 1 - i);
+            // Use O(n) forward iteration then reverse, instead of O(n log n) random access
+            const result: T[] = [];
+            for (const v of vecIter(state.vec)) {
+              result.push(v);
             }
+            result.reverse();
             return result;
           };
 
@@ -1455,11 +1466,17 @@ function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
           return () => {
             const len = state.vec.count;
             if (len <= 1) return proxy;
-            // Rebuild vec in reverse order
+            // Collect forward O(n) then reverse (vs O(n log n) backward vecGet)
+            const values: T[] = [];
+            for (const v of vecIter(state.vec)) {
+              values.push(v);
+            }
+            values.reverse();
+            // Rebuild vec from reversed array
             let newVec = emptyVec<T>();
             const owner: Owner = {};
-            for (let i = len - 1; i >= 0; i--) {
-              newVec = vecPush(newVec, owner, vecGet(state.vec, i) as T);
+            for (const v of values) {
+              newVec = vecPush(newVec, owner, v);
             }
             state.vec = newVec;
             state.modified = true;
