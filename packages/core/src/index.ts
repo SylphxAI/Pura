@@ -1309,6 +1309,17 @@ let OBJ_SEQ = 1;
 const SYM_HASH = new Map<symbol, number>();
 let SYM_SEQ = 1;
 
+// Splitmix32 finalizer for better hash distribution
+function mix32(z: number): number {
+  z = (z + 0x9e3779b9) | 0;
+  z ^= z >>> 16;
+  z = Math.imul(z, 0x85ebca6b);
+  z ^= z >>> 13;
+  z = Math.imul(z, 0xc2b2ae35);
+  z ^= z >>> 16;
+  return z >>> 0;
+}
+
 // Murmur3 32-bit hash for strings (better distribution than simple multiply-add)
 function murmur3(key: string, seed = 0): number {
   let h = seed ^ key.length;
@@ -1363,19 +1374,24 @@ function hashKey(key: any): number {
       return murmur3(key);
     case 'number': {
       const n = Object.is(key, -0) ? 0 : key;
-      // Simple hash for numbers - combine integer and fractional parts
-      const h = (Math.imul(n | 0, 0x85ebca6b) ^ Math.imul((n * 4294967296) | 0, 0xc2b2ae35)) | 0;
-      return h >>> 0;
+      // Use splitmix32 for better distribution
+      return mix32((n | 0) ^ Math.imul((n * 4294967296) | 0, 0x9e3779b1));
     }
     case 'boolean':
       return key ? 0x27d4eb2d : 0x165667b1;
     case 'bigint': {
-      const s = key.toString();
+      // Hash bigint using splitmix32 on chunks
       let h = 0;
-      for (let i = 0; i < s.length; i++) {
-        h = (h * 33 + s.charCodeAt(i)) | 0;
+      const s = key.toString();
+      for (let i = 0; i < s.length; i += 4) {
+        const chunk = s.slice(i, i + 4);
+        let v = 0;
+        for (let j = 0; j < chunk.length; j++) {
+          v = (v << 8) | chunk.charCodeAt(j);
+        }
+        h = mix32(h ^ v);
       }
-      return h >>> 0;
+      return h;
     }
     case 'symbol': {
       let id = SYM_HASH.get(key);
