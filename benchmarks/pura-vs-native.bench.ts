@@ -20,13 +20,12 @@ describe('Small array (100 items) - Single update', () => {
   const nativeSmall = Array.from({ length: SMALL }, (_, i) => i);
   const puraSmall = pura(nativeSmall);
 
-  bench('Native (mutable)', () => {
-    const arr = nativeSmall.slice();
-    arr[50] = 999;
-    return arr;
+  bench('Native (direct mutate)', () => {
+    nativeSmall[50] = 999;
+    return nativeSmall;
   });
 
-  bench('Native (naive copy)', () => {
+  bench('Native (copy then mutate)', () => {
     const copy = nativeSmall.slice();
     copy[50] = 999;
     return copy;
@@ -43,13 +42,13 @@ describe('Small array (100 items) - Push', () => {
   const nativeSmall = Array.from({ length: SMALL }, (_, i) => i);
   const puraSmall = pura(nativeSmall);
 
-  bench('Native (mutable)', () => {
-    const arr = nativeSmall.slice();
-    arr.push(100);
-    return arr;
+  bench('Native (direct mutate)', () => {
+    nativeSmall.push(100);
+    nativeSmall.pop(); // Reset to maintain state
+    return nativeSmall;
   });
 
-  bench('Native (naive copy)', () => {
+  bench('Native (copy then mutate)', () => {
     const copy = nativeSmall.slice();
     copy.push(100);
     return copy;
@@ -67,13 +66,12 @@ describe('Medium array (1000 items) - Single update', () => {
   const nativeMedium = Array.from({ length: MEDIUM }, (_, i) => i);
   const puraMedium = pura(nativeMedium);
 
-  bench('Native (mutable)', () => {
-    const arr = nativeMedium.slice();
-    arr[500] = 999;
-    return arr;
+  bench('Native (direct mutate)', () => {
+    nativeMedium[500] = 999;
+    return nativeMedium;
   });
 
-  bench('Native (naive copy)', () => {
+  bench('Native (copy then mutate)', () => {
     const copy = nativeMedium.slice();
     copy[500] = 999;
     return copy;
@@ -90,15 +88,17 @@ describe('Medium array (1000 items) - Push 10 items', () => {
   const nativeMedium = Array.from({ length: MEDIUM }, (_, i) => i);
   const puraMedium = pura(nativeMedium);
 
-  bench('Native (mutable)', () => {
-    const arr = nativeMedium.slice();
+  bench('Native (direct mutate)', () => {
     for (let i = 0; i < 10; i++) {
-      arr.push(i);
+      nativeMedium.push(i);
     }
-    return arr;
+    for (let i = 0; i < 10; i++) {
+      nativeMedium.pop(); // Reset
+    }
+    return nativeMedium;
   });
 
-  bench('Native (naive copy)', () => {
+  bench('Native (copy then mutate)', () => {
     const copy = nativeMedium.slice();
     for (let i = 0; i < 10; i++) {
       copy.push(i);
@@ -120,15 +120,14 @@ describe('Medium array (1000 items) - Multiple updates (10 indices)', () => {
   const puraMedium = pura(nativeMedium);
   const indices = [100, 200, 300, 400, 500, 600, 700, 800, 900, 999];
 
-  bench('Native (mutable)', () => {
-    const arr = nativeMedium.slice();
+  bench('Native (direct mutate)', () => {
     for (const idx of indices) {
-      arr[idx] = 999;
+      nativeMedium[idx] = 999;
     }
-    return arr;
+    return nativeMedium;
   });
 
-  bench('Native (naive copy)', () => {
+  bench('Native (copy then mutate)', () => {
     const copy = nativeMedium.slice();
     for (const idx of indices) {
       copy[idx] = 999;
@@ -150,13 +149,12 @@ describe('Large array (10000 items) - Single update', () => {
   const nativeLarge = Array.from({ length: LARGE }, (_, i) => i);
   const puraLarge = pura(nativeLarge);
 
-  bench('Native (mutable)', () => {
-    const arr = nativeLarge.slice();
-    arr[5000] = 999;
-    return arr;
+  bench('Native (direct mutate)', () => {
+    nativeLarge[5000] = 999;
+    return nativeLarge;
   });
 
-  bench('Native (naive copy)', () => {
+  bench('Native (copy then mutate)', () => {
     const copy = nativeLarge.slice();
     copy[5000] = 999;
     return copy;
@@ -173,15 +171,17 @@ describe('Large array (10000 items) - Push 10 items', () => {
   const nativeLarge = Array.from({ length: LARGE }, (_, i) => i);
   const puraLarge = pura(nativeLarge);
 
-  bench('Native (mutable)', () => {
-    const arr = nativeLarge.slice();
+  bench('Native (direct mutate)', () => {
     for (let i = 0; i < 10; i++) {
-      arr.push(i);
+      nativeLarge.push(i);
     }
-    return arr;
+    for (let i = 0; i < 10; i++) {
+      nativeLarge.pop(); // Reset
+    }
+    return nativeLarge;
   });
 
-  bench('Native (naive copy)', () => {
+  bench('Native (copy then mutate)', () => {
     const copy = nativeLarge.slice();
     for (let i = 0; i < 10; i++) {
       copy.push(i);
@@ -203,15 +203,14 @@ describe('Large array (10000 items) - Multiple updates (100 indices)', () => {
   const puraLarge = pura(nativeLarge);
   const indices = Array.from({ length: 100 }, () => Math.floor(Math.random() * LARGE));
 
-  bench('Native (mutable)', () => {
-    const arr = nativeLarge.slice();
+  bench('Native (direct mutate)', () => {
     for (const idx of indices) {
-      arr[idx] = 999;
+      nativeLarge[idx] = 999;
     }
-    return arr;
+    return nativeLarge;
   });
 
-  bench('Native (naive copy)', () => {
+  bench('Native (copy then mutate)', () => {
     const copy = nativeLarge.slice();
     for (const idx of indices) {
       copy[idx] = 999;

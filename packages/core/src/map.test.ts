@@ -473,7 +473,8 @@ describe('Map - Equality & Comparison', () => {
   it('should work with JSON serialization (via entries)', () => {
     const map = pura(new Map([['a', 1], ['b', 2]]));
     const json = JSON.stringify([...map.entries()]);
-    expect(JSON.parse(json)).toEqual([['a', 1], ['b', 2]]);
+    // Sort because HAMT iteration order is hash-based, not insertion order
+    expect(JSON.parse(json).sort()).toEqual([['a', 1], ['b', 2]]);
   });
 });
 

@@ -1108,15 +1108,58 @@ let OBJ_SEQ = 1;
 const SYM_HASH = new Map<symbol, number>();
 let SYM_SEQ = 1;
 
+// Murmur3 32-bit hash for strings (better distribution than simple multiply-add)
+function murmur3(key: string, seed = 0): number {
+  let h = seed ^ key.length;
+  let k: number;
+  let i = 0;
+
+  while (i + 4 <= key.length) {
+    k =
+      (key.charCodeAt(i) & 0xff) |
+      ((key.charCodeAt(i + 1) & 0xff) << 8) |
+      ((key.charCodeAt(i + 2) & 0xff) << 16) |
+      ((key.charCodeAt(i + 3) & 0xff) << 24);
+    i += 4;
+    k = Math.imul(k, 0xcc9e2d51);
+    k = (k << 15) | (k >>> 17);
+    k = Math.imul(k, 0x1b873593);
+    h ^= k;
+    h = (h << 13) | (h >>> 19);
+    h = (Math.imul(h, 5) + 0xe6546b64) | 0;
+  }
+
+  // tail
+  k = 0;
+  switch (key.length & 3) {
+    case 3:
+      k ^= (key.charCodeAt(i + 2) & 0xff) << 16;
+    // falls through
+    case 2:
+      k ^= (key.charCodeAt(i + 1) & 0xff) << 8;
+    // falls through
+    case 1:
+      k ^= key.charCodeAt(i) & 0xff;
+      k = Math.imul(k, 0xcc9e2d51);
+      k = (k << 15) | (k >>> 17);
+      k = Math.imul(k, 0x1b873593);
+      h ^= k;
+  }
+
+  // fmix
+  h ^= key.length;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return h >>> 0;
+}
+
 function hashKey(key: any): number {
   switch (typeof key) {
-    case 'string': {
-      let h = 0;
-      for (let i = 0; i < key.length; i++) {
-        h = (h * 31 + key.charCodeAt(i)) | 0;
-      }
-      return (h ^ 0x9e3779b9) >>> 0;
-    }
+    case 'string':
+      return murmur3(key);
     case 'number': {
       const n = Object.is(key, -0) ? 0 : key;
       // Simple hash for numbers - combine integer and fractional parts
@@ -2167,7 +2210,17 @@ export function unpura<T>(value: T): T {
   if (value instanceof Map) {
     // Top-level HAMT Map
     const top = MAP_STATE_ENV.get(value as any);
-    if (top) return new Map(hamtIter(top.map)) as any as T;
+    if (top) {
+      // Preserve insertion order if ordered
+      if (top.ordered) {
+        const out = new Map();
+        for (const k of orderIter(top.ordered)) {
+          out.set(k, hamtGet(top.map, k));
+        }
+        return out as any as T;
+      }
+      return new Map(hamtIter(top.map)) as any as T;
+    }
 
     // Nested Map proxy
     const nested = (value as any)[NESTED_MAP_STATE] as NestedMapState<any, any> | undefined;
@@ -2181,8 +2234,15 @@ export function unpura<T>(value: T): T {
     const top = SET_STATE_ENV.get(value as any);
     if (top) {
       const s = new Set<T>();
-      for (const [k] of hamtIter(top.map)) {
-        s.add(k as T);
+      // Preserve insertion order if ordered
+      if (top.ordered) {
+        for (const k of orderIter(top.ordered)) {
+          s.add(k as T);
+        }
+      } else {
+        for (const [k] of hamtIter(top.map)) {
+          s.add(k as T);
+        }
       }
       return s as any as T;
     }
