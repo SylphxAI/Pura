@@ -86,5 +86,31 @@ export {
   type NestedSetState,
 } from './nested-proxy';
 
+// Array Proxy
+export {
+  createArrayProxy,
+  produceArray,
+  ARRAY_STATE_ENV,
+  type PuraArrayState,
+} from './array-proxy';
+
+// Map Proxy
+export {
+  createMapProxy,
+  produceMap,
+  MAP_STATE_ENV,
+  type HMapState,
+} from './map-proxy';
+
+// Set Proxy
+export {
+  createSetProxy,
+  produceSet,
+  hamtFromSet,
+  hamtToSetValues,
+  SET_STATE_ENV,
+  type HSetState,
+} from './set-proxy';
+
 // Types
 export type { Owner, Node, Vec } from './types';
