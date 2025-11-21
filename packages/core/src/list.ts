@@ -27,6 +27,7 @@ type ListStorage<T> =
  * and persistent vector trie for larger lists.
  */
 export class IList<T = any> implements IListInterface<T> {
+  private _hash?: number; // Cached hash code
   private constructor(private readonly storage: ListStorage<T>) {}
 
   /**
@@ -497,6 +498,60 @@ export class IList<T = any> implements IListInterface<T> {
 
     return new IList({ type: 'vector', root: persistentRoot });
   }
+
+  /**
+   * Get hash code for this list
+   *
+   * Cached for performance when used as Map key or Set element.
+   * Hash is stable since list is immutable.
+   */
+  hashCode(): number {
+    if (this._hash !== undefined) {
+      return this._hash;
+    }
+
+    // Compute hash by combining element hashes
+    let h = 0;
+    for (const value of this) {
+      // Mix in this element's hash
+      const elemHash = typeof value === 'string'
+        ? hashString(value)
+        : typeof value === 'number'
+        ? hashNumber(value)
+        : typeof value === 'object' && value !== null && 'hashCode' in value && typeof value.hashCode === 'function'
+        ? value.hashCode()
+        : hashString(String(value));
+
+      // Combine hashes (similar to Java's List.hashCode)
+      h = (31 * h + elemHash) | 0;
+    }
+
+    // Cache and return
+    this._hash = h >>> 0; // Convert to unsigned
+    return this._hash;
+  }
+}
+
+/**
+ * Hash a string (FNV-1a variant)
+ */
+function hashString(str: string): number {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  }
+  return h >>> 0;
+}
+
+/**
+ * Hash a number
+ */
+function hashNumber(num: number): number {
+  let h = num | 0;
+  h = ((h >>> 16) ^ h) * 0x45d9f3b;
+  h = ((h >>> 16) ^ h) * 0x45d9f3b;
+  h = (h >>> 16) ^ h;
+  return h >>> 0;
 }
 
 /**

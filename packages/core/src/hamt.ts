@@ -31,6 +31,7 @@ const MAX_DEPTH = 7;               // ~1 billion entries
 /**
  * Hash function for keys
  * Uses simple but effective hash for strings/numbers
+ * Supports hashCode() method for custom objects (IList, IMap, etc.)
  */
 export function hash(key: unknown): number {
   if (typeof key === 'string') {
@@ -39,7 +40,11 @@ export function hash(key: unknown): number {
   if (typeof key === 'number') {
     return hashNumber(key);
   }
-  // For objects, use identity (could enhance with WeakMap)
+  // For objects with hashCode() method (IList, IMap), use that
+  if (typeof key === 'object' && key !== null && 'hashCode' in key && typeof key.hashCode === 'function') {
+    return key.hashCode();
+  }
+  // Fallback: convert to string and hash
   return hashString(String(key));
 }
 

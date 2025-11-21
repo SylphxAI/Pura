@@ -18,6 +18,7 @@ type Edit = { _brand: 'edit' };
  * Immutable Persistent Map
  */
 export class IMap<K = any, V = any> implements IMapInterface<K, V> {
+  private _hash?: number; // Cached hash code
   private constructor(
     private readonly root: HAMTNode<K, V>,
     public readonly size: number,
@@ -283,6 +284,69 @@ export class IMap<K = any, V = any> implements IMapInterface<K, V> {
     const persistentRoot = HAMT.asPersistent(this.root);
     return new IMap(persistentRoot, this.size);
   }
+
+  /**
+   * Get hash code for this map
+   *
+   * Cached for performance when used as Map key or Set element.
+   * Hash is stable since map is immutable.
+   */
+  hashCode(): number {
+    if (this._hash !== undefined) {
+      return this._hash;
+    }
+
+    // Compute hash by combining key-value pair hashes
+    let h = 0;
+    for (const [key, value] of this) {
+      // Hash the key
+      const keyHash = typeof key === 'string'
+        ? hashString(key)
+        : typeof key === 'number'
+        ? hashNumber(key)
+        : typeof key === 'object' && key !== null && 'hashCode' in key && typeof key.hashCode === 'function'
+        ? key.hashCode()
+        : hashString(String(key));
+
+      // Hash the value
+      const valueHash = typeof value === 'string'
+        ? hashString(value)
+        : typeof value === 'number'
+        ? hashNumber(value)
+        : typeof value === 'object' && value !== null && 'hashCode' in value && typeof value.hashCode === 'function'
+        ? value.hashCode()
+        : hashString(String(value));
+
+      // Combine key and value hashes (order-independent for map)
+      h = (h + keyHash ^ valueHash) | 0;
+    }
+
+    // Cache and return
+    this._hash = h >>> 0; // Convert to unsigned
+    return this._hash;
+  }
+}
+
+/**
+ * Hash a string (FNV-1a variant)
+ */
+function hashString(str: string): number {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  }
+  return h >>> 0;
+}
+
+/**
+ * Hash a number
+ */
+function hashNumber(num: number): number {
+  let h = num | 0;
+  h = ((h >>> 16) ^ h) * 0x45d9f3b;
+  h = ((h >>> 16) ^ h) * 0x45d9f3b;
+  h = (h >>> 16) ^ h;
+  return h >>> 0;
 }
 
 /**
