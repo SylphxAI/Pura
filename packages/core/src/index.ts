@@ -1522,11 +1522,12 @@ function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
           state.proxies?.clear();
           return true;
         }
-        // Expand: fallback to native array
-        console.warn('Pura: De-optimizing for length expansion');
-        state.fallback = vecToArray(state.vec);
+        // Expand: push undefined values
+        while (state.vec.count < newLen) {
+          state.vec = vecPush(state.vec, state.owner, undefined as unknown as T);
+        }
         state.modified = true;
-        (state.fallback as any).length = newLen;
+        state.cachedLeaf = undefined;
         return true;
       }
 
