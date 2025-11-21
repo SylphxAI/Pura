@@ -923,18 +923,118 @@ function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
           };
 
         case 'map':
+          return (fn: (v: T, i: number, a: T[]) => any, thisArg?: any) => {
+            const result: any[] = [];
+            let i = 0;
+            for (const v of vecIter(state.vec)) {
+              result.push(fn.call(thisArg, v, i++, proxy));
+            }
+            return result;
+          };
+
         case 'filter':
+          return (fn: (v: T, i: number, a: T[]) => boolean, thisArg?: any) => {
+            const result: T[] = [];
+            let i = 0;
+            for (const v of vecIter(state.vec)) {
+              if (fn.call(thisArg, v, i++, proxy)) {
+                result.push(v);
+              }
+            }
+            return result;
+          };
+
+        case 'reduce':
+          return (...reduceArgs: any[]) => {
+            const fn = reduceArgs[0] as (acc: any, v: T, i: number, a: T[]) => any;
+            let acc: any;
+            let i = 0;
+            let started = reduceArgs.length > 1;
+            if (started) acc = reduceArgs[1];
+            for (const v of vecIter(state.vec)) {
+              if (!started) {
+                acc = v;
+                started = true;
+              } else {
+                acc = fn(acc, v, i, proxy);
+              }
+              i++;
+            }
+            return acc;
+          };
+
+        case 'forEach':
+          return (fn: (v: T, i: number, a: T[]) => void, thisArg?: any) => {
+            let i = 0;
+            for (const v of vecIter(state.vec)) {
+              fn.call(thisArg, v, i++, proxy);
+            }
+          };
+
+        case 'some':
+          return (fn: (v: T, i: number, a: T[]) => boolean, thisArg?: any) => {
+            let i = 0;
+            for (const v of vecIter(state.vec)) {
+              if (fn.call(thisArg, v, i++, proxy)) return true;
+            }
+            return false;
+          };
+
+        case 'every':
+          return (fn: (v: T, i: number, a: T[]) => boolean, thisArg?: any) => {
+            let i = 0;
+            for (const v of vecIter(state.vec)) {
+              if (!fn.call(thisArg, v, i++, proxy)) return false;
+            }
+            return true;
+          };
+
+        case 'find':
+          return (fn: (v: T, i: number, a: T[]) => boolean, thisArg?: any) => {
+            let i = 0;
+            for (const v of vecIter(state.vec)) {
+              if (fn.call(thisArg, v, i++, proxy)) return v;
+            }
+            return undefined;
+          };
+
+        case 'findIndex':
+          return (fn: (v: T, i: number, a: T[]) => boolean, thisArg?: any) => {
+            let i = 0;
+            for (const v of vecIter(state.vec)) {
+              if (fn.call(thisArg, v, i, proxy)) return i;
+              i++;
+            }
+            return -1;
+          };
+
+        case 'includes':
+          return (search: T, fromIndex?: number) => {
+            let i = 0;
+            const start = fromIndex ?? 0;
+            for (const v of vecIter(state.vec)) {
+              if (i >= start && (v === search || (Number.isNaN(search) && Number.isNaN(v as any)))) {
+                return true;
+              }
+              i++;
+            }
+            return false;
+          };
+
+        case 'indexOf':
+          return (search: T, fromIndex?: number) => {
+            let i = 0;
+            const start = fromIndex ?? 0;
+            for (const v of vecIter(state.vec)) {
+              if (i >= start && v === search) return i;
+              i++;
+            }
+            return -1;
+          };
+
         case 'slice':
         case 'concat':
-        case 'reduce':
-        case 'forEach':
-        case 'some':
-        case 'every':
-        case 'includes':
-        case 'indexOf':
         case 'join':
-        case 'find':
-        case 'findIndex':
           return (...args: any[]) => {
             const arr = vecToArray(state.vec) as any;
             const fn = arr[prop as keyof any];
