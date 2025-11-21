@@ -1032,6 +1032,28 @@ function createArrayProxy<T>(state: PuraArrayState<T>): T[] {
             return -1;
           };
 
+        case 'lastIndexOf':
+          return (search: T, fromIndex?: number) => {
+            const len = state.vec.count;
+            const start = fromIndex === undefined ? len - 1 : Math.min(fromIndex, len - 1);
+            // Need to iterate and track last match
+            let lastMatch = -1;
+            let i = 0;
+            for (const v of vecIter(state.vec)) {
+              if (i <= start && v === search) lastMatch = i;
+              i++;
+            }
+            return lastMatch;
+          };
+
+        case 'at':
+          return (index: number) => {
+            const len = state.vec.count;
+            const idx = index < 0 ? len + index : index;
+            if (idx < 0 || idx >= len) return undefined;
+            return vecGetCached(state, idx);
+          };
+
         case 'slice':
         case 'concat':
         case 'join':
