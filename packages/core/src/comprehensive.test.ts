@@ -176,6 +176,40 @@ describe('Three APIs: pura, produce, unpura', () => {
 
       expect(result === arr).toBe(true);
     });
+
+    it('produce() returns pura object that can be mutated', () => {
+      // Array
+      const arr1 = pura([1, 2, 3]);
+      const arr2 = produce(arr1, d => d.push(4));
+      expect(isPura(arr2)).toBe(true);
+      arr2.push(5); // Can mutate the result
+      expect(arr2).toEqual([1, 2, 3, 4, 5]);
+      expect(arr1).toEqual([1, 2, 3]); // Original unchanged
+
+      // Object
+      const obj1 = pura({ a: 1 });
+      const obj2 = produce(obj1, d => { d.b = 2; });
+      expect(isPura(obj2)).toBe(true);
+      obj2.c = 3; // Can mutate the result
+      expect(obj2).toEqual({ a: 1, b: 2, c: 3 });
+      expect(obj1).toEqual({ a: 1 }); // Original unchanged
+
+      // Map
+      const map1 = pura(new Map([['a', 1]]));
+      const map2 = produce(map1, d => d.set('b', 2));
+      expect(isPura(map2)).toBe(true);
+      map2.set('c', 3); // Can mutate the result
+      expect(map2.get('c')).toBe(3);
+      expect(map1.has('c')).toBe(false); // Original unchanged
+
+      // Set
+      const set1 = pura(new Set([1]));
+      const set2 = produce(set1, d => d.add(2));
+      expect(isPura(set2)).toBe(true);
+      set2.add(3); // Can mutate the result
+      expect(set2.has(3)).toBe(true);
+      expect(set1.has(3)).toBe(false); // Original unchanged
+    });
   });
 
   describe('unpura() - Convert to native', () => {
