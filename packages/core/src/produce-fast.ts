@@ -168,7 +168,27 @@ function produceFastArray<E>(
 
   if (mutations.length === 0) return base;
 
-  // Apply all mutations
+  // Optimize: batch simple sets
+  const hasComplexMutation = mutations.some(m =>
+    m.type === 'splice' || m.type === 'filter' || m.type === 'delete'
+  );
+
+  if (!hasComplexMutation) {
+    // Only sets and pushes - can optimize
+    const result = base.slice();
+
+    for (const mutation of mutations) {
+      if (mutation.type === 'set') {
+        result[mutation.index] = mutation.value;
+      } else if (mutation.type === 'push') {
+        result.push(...mutation.items);
+      }
+    }
+
+    return result;
+  }
+
+  // Complex mutations - apply sequentially
   let result = base.slice();
 
   for (const mutation of mutations) {
@@ -218,20 +238,35 @@ function produceFastMap<K, V>(
 
   if (mutations.length === 0) return base;
 
-  // Apply all mutations
+  // Check if there's a clear operation
+  const hasClear = mutations.some(m => m.type === 'clear');
+
+  if (hasClear) {
+    // Clear operation - start fresh
+    const result = new Map<K, V>();
+    let cleared = false;
+
+    for (const mutation of mutations) {
+      if (mutation.type === 'clear') {
+        result.clear();
+        cleared = true;
+      } else if (mutation.type === 'set') {
+        result.set(mutation.key, mutation.value);
+      }
+      // Ignore deletes before clear
+    }
+
+    return result;
+  }
+
+  // No clear - batch all operations
   const result = new Map(base);
 
   for (const mutation of mutations) {
-    switch (mutation.type) {
-      case 'set':
-        result.set(mutation.key, mutation.value);
-        break;
-      case 'delete':
-        result.delete(mutation.key);
-        break;
-      case 'clear':
-        result.clear();
-        break;
+    if (mutation.type === 'set') {
+      result.set(mutation.key, mutation.value);
+    } else if (mutation.type === 'delete') {
+      result.delete(mutation.key);
     }
   }
 
@@ -262,20 +297,35 @@ function produceFastSet<V>(
 
   if (mutations.length === 0) return base;
 
-  // Apply all mutations
+  // Check if there's a clear operation
+  const hasClear = mutations.some(m => m.type === 'clear');
+
+  if (hasClear) {
+    // Clear operation - start fresh
+    const result = new Set<V>();
+    let cleared = false;
+
+    for (const mutation of mutations) {
+      if (mutation.type === 'clear') {
+        result.clear();
+        cleared = true;
+      } else if (mutation.type === 'add') {
+        result.add(mutation.value);
+      }
+      // Ignore deletes before clear
+    }
+
+    return result;
+  }
+
+  // No clear - batch all operations
   const result = new Set(base);
 
   for (const mutation of mutations) {
-    switch (mutation.type) {
-      case 'add':
-        result.add(mutation.value);
-        break;
-      case 'delete':
-        result.delete(mutation.value);
-        break;
-      case 'clear':
-        result.clear();
-        break;
+    if (mutation.type === 'add') {
+      result.add(mutation.value);
+    } else if (mutation.type === 'delete') {
+      result.delete(mutation.value);
     }
   }
 
@@ -283,6 +333,17 @@ function produceFastSet<V>(
 }
 
 // ===== Object Implementation =====
+
+/**
+ * Get value at path
+ */
+function getIn<T>(obj: T, path: readonly (string | number)[]): any {
+  let current: any = obj;
+  for (const key of path) {
+    current = current[key];
+  }
+  return current;
+}
 
 /**
  * Immutably set value at path
@@ -302,17 +363,6 @@ function setIn<T>(obj: T, path: readonly (string | number)[], value: any): T {
     ...obj,
     [first]: rest.length === 0 ? value : setIn((obj as any)[first], rest, value)
   } as T;
-}
-
-/**
- * Get value at path
- */
-function getIn<T>(obj: T, path: readonly (string | number)[]): any {
-  let current: any = obj;
-  for (const key of path) {
-    current = current[key];
-  }
-  return current;
 }
 
 /**
@@ -347,16 +397,135 @@ function deleteIn<T>(obj: T, path: readonly (string | number)[]): T {
 }
 
 /**
- * Merge object at path
+ * Optimized batch application of mutations
  */
-function mergeIn<T>(obj: T, path: readonly (string | number)[], value: any): T {
-  if (path.length === 0) {
-    return { ...obj, ...value } as T;
+function applyMutationsBatch<T extends object>(
+  base: T,
+  mutations: ObjectMutation[]
+): T {
+  if (mutations.length === 0) return base;
+
+  // Fast path: single mutation
+  if (mutations.length === 1) {
+    const mutation = mutations[0];
+    switch (mutation.type) {
+      case 'set':
+        return setIn(base, mutation.path, mutation.value);
+      case 'update': {
+        const oldValue = getIn(base, mutation.path);
+        const newValue = mutation.updater(oldValue);
+        return setIn(base, mutation.path, newValue);
+      }
+      case 'delete':
+        return deleteIn(base, mutation.path);
+      case 'merge': {
+        const currentValue = getIn(base, mutation.path);
+        const merged = { ...currentValue, ...mutation.value };
+        return setIn(base, mutation.path, merged);
+      }
+    }
   }
 
-  const current = getIn(obj, path);
-  const merged = { ...current, ...value };
-  return setIn(obj, path, merged);
+  // Check if all mutations are shallow (path length 1)
+  const allShallow = mutations.every(m => m.path.length === 1);
+
+  if (allShallow) {
+    // Check if there are any deletes
+    const hasDeletes = mutations.some(m => m.type === 'delete');
+
+    if (!hasDeletes) {
+      // No deletes - can use simple spread
+      const changes: Record<string | number, any> = {};
+
+      for (const mutation of mutations) {
+        const key = mutation.path[0];
+        switch (mutation.type) {
+          case 'set':
+            changes[key] = mutation.value;
+            break;
+          case 'update':
+            changes[key] = mutation.updater((base as any)[key]);
+            break;
+          case 'merge':
+            changes[key] = { ...(base as any)[key], ...mutation.value };
+            break;
+        }
+      }
+
+      // Single spread operation
+      return { ...base, ...changes } as T;
+    }
+
+    // Has deletes - need to filter
+    const changes: Record<string | number, any> = {};
+    const deletes = new Set<string | number>();
+
+    for (const mutation of mutations) {
+      const key = mutation.path[0];
+      switch (mutation.type) {
+        case 'set':
+          changes[key] = mutation.value;
+          deletes.delete(key);
+          break;
+        case 'update':
+          changes[key] = mutation.updater((base as any)[key]);
+          deletes.delete(key);
+          break;
+        case 'delete':
+          deletes.add(key);
+          delete changes[key];
+          break;
+        case 'merge':
+          changes[key] = { ...(base as any)[key], ...mutation.value };
+          deletes.delete(key);
+          break;
+      }
+    }
+
+    // Apply all changes in one pass
+    const result: any = {};
+    for (const key in base) {
+      if (!deletes.has(key)) {
+        result[key] = key in changes ? changes[key] : (base as any)[key];
+      }
+    }
+    for (const key in changes) {
+      if (!(key in base)) {
+        result[key] = changes[key];
+      }
+    }
+
+    return result as T;
+  }
+
+  // Deep mutations - apply sequentially (for now)
+  // TODO: Optimize deep mutation batching
+  let result = base;
+
+  for (const mutation of mutations) {
+    switch (mutation.type) {
+      case 'set':
+        result = setIn(result, mutation.path, mutation.value);
+        break;
+      case 'update': {
+        const oldValue = getIn(result, mutation.path);
+        const newValue = mutation.updater(oldValue);
+        result = setIn(result, mutation.path, newValue);
+        break;
+      }
+      case 'delete':
+        result = deleteIn(result, mutation.path);
+        break;
+      case 'merge': {
+        const currentValue = getIn(result, mutation.path);
+        const merged = { ...currentValue, ...mutation.value };
+        result = setIn(result, mutation.path, merged);
+        break;
+      }
+    }
+  }
+
+  return result;
 }
 
 function produceFastObject<T extends object>(
@@ -382,32 +551,7 @@ function produceFastObject<T extends object>(
 
   recipe(helper);
 
-  if (mutations.length === 0) return base;
-
-  // Apply all mutations
-  let result = base;
-
-  for (const mutation of mutations) {
-    switch (mutation.type) {
-      case 'set':
-        result = setIn(result, mutation.path, mutation.value);
-        break;
-      case 'update': {
-        const oldValue = getIn(result, mutation.path);
-        const newValue = mutation.updater(oldValue);
-        result = setIn(result, mutation.path, newValue);
-        break;
-      }
-      case 'delete':
-        result = deleteIn(result, mutation.path);
-        break;
-      case 'merge':
-        result = mergeIn(result, mutation.path, mutation.value);
-        break;
-    }
-  }
-
-  return result;
+  return applyMutationsBatch(base, mutations);
 }
 
 // ===== Main ProduceFast Function =====
