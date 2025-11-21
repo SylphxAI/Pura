@@ -33,6 +33,11 @@ describe('Small map (10 entries) - Single set', () => {
     return nativeSmall;
   });
 
+  bench('Pura (direct mutate)', () => {
+    puraSmall.set('key5', 999);
+    return puraSmall;
+  });
+
   bench('Native (copy then set)', () => {
     const copy = new Map(nativeSmall);
     copy.set('key5', 999);
@@ -304,12 +309,23 @@ describe('Medium map - Object keys', () => {
     return puraMap.get(key2);
   });
 
-  bench('Native (set with object key)', () => {
+  bench('Native (direct mutate)', () => {
     nativeMap.set(key2, 999);
     return nativeMap;
   });
 
-  bench('Pura (produce set with object key)', () => {
+  bench('Pura (direct mutate)', () => {
+    puraMap.set(key2, 999);
+    return puraMap;
+  });
+
+  bench('Native (copy then set)', () => {
+    const copy = new Map(nativeMap);
+    copy.set(key2, 999);
+    return copy;
+  });
+
+  bench('Pura (produce)', () => {
     return produce(puraMap, draft => {
       draft.set(key2, 999);
     });

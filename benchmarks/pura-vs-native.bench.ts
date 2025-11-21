@@ -154,6 +154,90 @@ describe('[Mutable] Large (10000) - Index write', () => {
 // READ OPERATIONS
 // ============================================================
 
+describe('[Read] Small (100) - Sequential read', () => {
+  bench('Native', () => {
+    let sum = 0;
+    for (let i = 0; i < nativeSmall.length; i++) {
+      sum += nativeSmall[i]!;
+    }
+    return sum;
+  });
+
+  bench('Pura', () => {
+    let sum = 0;
+    for (let i = 0; i < puraSmall.length; i++) {
+      sum += puraSmall[i]!;
+    }
+    return sum;
+  });
+});
+
+describe('[Read] Small (100) - for...of iteration', () => {
+  bench('Native', () => {
+    let sum = 0;
+    for (const v of nativeSmall) sum += v;
+    return sum;
+  });
+
+  bench('Pura', () => {
+    let sum = 0;
+    for (const v of puraSmall) sum += v;
+    return sum;
+  });
+});
+
+describe('[Read] Small (100) - map()', () => {
+  bench('Native', () => {
+    return nativeSmall.map(x => x * 2);
+  });
+
+  bench('Pura', () => {
+    return puraSmall.map(x => x * 2);
+  });
+});
+
+describe('[Read] Medium (1000) - Sequential read', () => {
+  bench('Native', () => {
+    let sum = 0;
+    for (let i = 0; i < nativeMedium.length; i++) {
+      sum += nativeMedium[i]!;
+    }
+    return sum;
+  });
+
+  bench('Pura', () => {
+    let sum = 0;
+    for (let i = 0; i < puraMedium.length; i++) {
+      sum += puraMedium[i]!;
+    }
+    return sum;
+  });
+});
+
+describe('[Read] Medium (1000) - for...of iteration', () => {
+  bench('Native', () => {
+    let sum = 0;
+    for (const v of nativeMedium) sum += v;
+    return sum;
+  });
+
+  bench('Pura', () => {
+    let sum = 0;
+    for (const v of puraMedium) sum += v;
+    return sum;
+  });
+});
+
+describe('[Read] Medium (1000) - map()', () => {
+  bench('Native', () => {
+    return nativeMedium.map(x => x * 2);
+  });
+
+  bench('Pura', () => {
+    return puraMedium.map(x => x * 2);
+  });
+});
+
 describe('[Read] Large (10000) - Sequential read', () => {
   bench('Native', () => {
     let sum = 0;
