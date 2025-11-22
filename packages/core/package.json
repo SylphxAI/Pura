@@ -1,6 +1,6 @@
 {
   "name": "@sylphx/pura",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Pure FP for TypeScript - Fast, Type-Safe, Zero Compromise. Persistent data structures (HAMT, RRB-Tree) that make immutability faster than mutation.",
   "type": "module",
   "main": "./dist/index.js",

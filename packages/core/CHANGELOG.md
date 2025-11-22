@@ -1,5 +1,11 @@
 # @sylphx/pura
 
+## 1.0.1
+
+### Patch Changes
+
+- [`0c96295`](https://github.com/SylphxAI/Pura/commit/0c962955e24b97f2417e41c0dab9b8dd0092b8cb) Thanks [@shtse8](https://github.com/shtse8)! - Fix build configuration to include dist files in npm package. The v1.0.0 release was missing compiled JavaScript files.
+
 ## 1.0.0
 
 ### Major Changes
