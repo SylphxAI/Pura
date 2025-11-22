@@ -2,6 +2,8 @@
 
 **Pure FP for TypeScript. Fast, Type-Safe, Zero Compromise.**
 
+Returns **native JavaScript types** (not custom wrappers). Immutability faster than mutation. Zero learning curve.
+
 Pura brings production-grade persistent data structures to TypeScript, making Pure Functional Programming as fast and ergonomic as imperative code.
 
 ---
@@ -16,11 +18,12 @@ Like Flutter's `fast_immutable_collections`, Pura makes immutable operations **f
 
 ## 🚀 Features
 
-- **⚡ Blazing Fast**: O(log n) operations with structural sharing
+- **🎯 Returns Native Types**: Real Array/Object/Map/Set - not custom wrappers. 100% library compatible. Zero learning curve.
+- **⚡ Blazing Fast**: O(log n) operations with structural sharing. 1.06-105x faster than Immer.
+- **🔄 Dual Mode**: Use immutably with produce() or mutably when needed. Both patterns supported.
 - **🔒 Immutable by Design**: Persistent data structures proven in Clojure/Scala
 - **🎯 Type-Safe**: Perfect TypeScript inference, zero `any`
 - **🪶 Lightweight**: <8KB gzipped for core collections
-- **🔧 Composable**: Optics (Lens, Prism), Transducers, Pipeline composition
 - **✅ Production-Ready**: Battle-tested algorithms, comprehensive tests
 
 ---
