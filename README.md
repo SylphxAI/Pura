@@ -246,7 +246,7 @@ All benchmarks use pura adaptive types as input (testing mutation performance, n
 
 ## 📈 Performance Visualizations
 
-### Pura vs Immer: Speedup Across All Scenarios
+### Array Operations: Absolute Performance (Higher = Better)
 
 ```mermaid
 ---
@@ -256,20 +256,19 @@ config:
       backgroundColor: "transparent"
 ---
 xychart-beta
-    title "Pura vs Immer Speedup (Higher is Better)"
-    x-axis [Arrays-S, Arrays-M, Arrays-L, Objects, Maps-M, Sets-M]
-    y-axis "Speedup Factor (x)" 0 --> 120
-    bar [5.32, 1.10, 1.06, 3.93, 12.1, 105]
-    line [1, 1, 1, 1, 1, 1]
+    title "Array Multiple Updates - Operations/Second (Millions)"
+    x-axis ["Small (100)", "Medium (1K)", "Large (10K)"]
+    y-axis "Million ops/sec" 0 --> 15
+    bar "Pura" [3.56, 0.16, 0.018]
+    bar "Immer" [0.17, 0.006, 0.0005]
+    bar "Native Copy" [13.4, 0.021, 0.0018]
 ```
 
-**Legend**: Arrays-S (Small 100), Arrays-M (Medium 1K), Arrays-L (Large 10K), Maps-M/Sets-M (Medium 1K)
-**Baseline**: 1x = Same performance as Immer
-**Highlights**: 🚀 **105x faster** on Sets (1K), **12x faster** on Maps (1K), **5.32x faster** on small Arrays
+**Key Insight**: At small scale, Native Copy fastest (manual code). At medium/large scale, **Pura dominates** - 25-35x faster than Immer, even faster than Native Copy (which must copy entire array).
 
 ---
 
-### Performance at Scale: Pura Maintains Speed
+### Object Operations: Absolute Performance (Higher = Better)
 
 ```mermaid
 ---
@@ -279,14 +278,15 @@ config:
       backgroundColor: "transparent"
 ---
 xychart-beta
-    title "Array Operations: Pura vs Immer (ops/sec)"
-    x-axis ["Small 100", "Medium 1K", "Large 10K"]
-    y-axis "Operations/sec (K)" 0 --> 10000
-    bar [9050, 714, 571]
-    line [3810, 672, 540]
+    title "Object Updates - Operations/Second (Millions)"
+    x-axis ["Shallow Update", "Deep Update"]
+    y-axis "Million ops/sec" 0 --> 25
+    bar "Pura" [9.0, 2.9]
+    bar "Immer" [1.1, 0.4]
+    bar "Native Spread" [23.0, 13.8]
 ```
 
-**Key Insight**: Pura maintains **2-5x faster** performance than Immer across all scales, from **9M ops/sec** (small) to **571K ops/sec** (large).
+**Key Insight**: Native spread fastest (simple objects), but **Pura 7-8x faster than Immer** across all operations. Pura maintains performance even on deep updates.
 
 ---
 
