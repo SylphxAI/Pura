@@ -73,7 +73,8 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/SylphxAI/Pura' }
+      { icon: 'github', link: 'https://github.com/SylphxAI/Pura' },
+      { icon: 'npm', link: 'https://www.npmjs.com/package/@sylphx/pura' }
     ],
 
     footer: {
