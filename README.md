@@ -33,48 +33,99 @@ npm install pura
 bun add pura
 ```
 
-```typescript
-import { pura, produceFast } from 'pura'
+### Two APIs: Choose Your Style
 
-// Immutable array updates - Immer-like API with better performance
-const state = pura([1, 2, 3])
+**Option 1: `produceFast()` - Recommended** (1.06-105x faster than Immer)
+
+```typescript
+import { produceFast } from 'pura'
+
+// Arrays - no wrapper needed!
+const state = [1, 2, 3]
 const newState = produceFast(state, $ => {
-  $.set(0, 999)      // Update index 0
+  $.set(0, 999)      // Update index
   $.push(4)          // Add element
 })
 
-// Immutable object updates
-const user = pura({ name: 'John', age: 30, city: 'NYC' })
+// Objects - deep updates with path syntax
+const user = { name: 'John', age: 30, city: 'NYC' }
 const updated = produceFast(user, $ => {
-  $.set(['name'], 'Jane')    // Update single field
-  $.set(['age'], 31)         // Update another field
+  $.set(['name'], 'Jane')
+  $.set(['age'], 31)
 })
 
-// Deep nested updates
-const nested = pura({
+// Deep nested objects
+const nested = {
   profile: {
     settings: {
       theme: 'light',
       notifications: true
     }
   }
-})
+}
 const changed = produceFast(nested, $ => {
   $.set(['profile', 'settings', 'theme'], 'dark')
 })
 
-// Map operations
+// Maps & Sets
 const map = new Map([['a', 1], ['b', 2]])
 const newMap = produceFast(map, $ => {
-  $.set('c', 3)       // Add entry
-  $.delete('a')       // Remove entry
+  $.set('c', 3)
+  $.delete('a')
 })
 
-// Set operations
 const set = new Set([1, 2, 3])
 const newSet = produceFast(set, $ => {
-  $.add(4)            // Add element
-  $.delete(1)         // Remove element
+  $.add(4)
+  $.delete(1)
+})
+```
+
+**Option 2: `produce()` - Immer-Compatible** (for migration)
+
+```typescript
+import { produce } from 'pura'
+
+// Same API as Immer - just faster!
+const state = { items: [1, 2, 3], user: { name: 'John' } }
+const newState = produce(state, draft => {
+  draft.items[0] = 999        // Direct mutation syntax
+  draft.user.name = 'Jane'    // Just like Immer
+})
+```
+
+---
+
+## 🔄 Migrating from Immer
+
+**Super easy - just change the import!**
+
+```typescript
+// Before (Immer)
+import { produce } from 'immer'
+
+const next = produce(state, draft => {
+  draft.items[0] = 999
+  draft.user.name = 'Jane'
+})
+
+// After (Pura) - same code, 1.06-105x faster!
+import { produce } from 'pura'
+
+const next = produce(state, draft => {
+  draft.items[0] = 999
+  draft.user.name = 'Jane'
+})
+```
+
+**For best performance, migrate to `produceFast()`:**
+
+```typescript
+import { produceFast } from 'pura'
+
+const next = produceFast(state, $ => {
+  $.set(['items', 0], 999)
+  $.set(['user', 'name'], 'Jane')
 })
 ```
 
@@ -119,10 +170,10 @@ import { List } from 'immutable'
 const list = List([1, 2, 3])
 list.push(4)  // Different API, no TypeScript inference
 
-// Pura: Familiar API, excellent tree-shaking, <8KB
-import { pura, produceFast } from 'pura'
-const list = pura([1, 2, 3])
-produceFast(list, $ => $.push(4))  // Familiar API, perfect inference
+// Pura: Native API, excellent tree-shaking, <8KB
+import { produceFast } from 'pura'
+const list = [1, 2, 3]  // No wrapper needed!
+const newList = produceFast(list, $ => $.push(4))
 ```
 
 ---
@@ -349,24 +400,83 @@ xychart-beta
 
 ---
 
-## ⚠️ Trade-offs: Read Performance
+## 🔬 How Pura Works: Adaptive Strategy
 
-Pura's persistent structures have overhead for read operations. For hot read loops, use `.toArray()`:
+Pura automatically chooses the best representation for your data:
+
+### **Small Collections (<512) → Native**
+```typescript
+const small = [1, 2, 3]  // < 512 elements
+const result = produceFast(small, $ => $.push(4))
+// result is a native array - zero overhead!
+```
+
+### **Large Collections (>=512) → Tree Proxy**
+```typescript
+const large = Array.from({ length: 1000 }, (_, i) => i)  // >= 512
+const result = produceFast(large, $ => $.set(500, 999))
+// result uses persistent tree (HAMT/RRB) - structural sharing!
+```
+
+### **Automatic Promotion/Demotion**
+```typescript
+// Starts small (native)
+let data = [1, 2, 3]
+
+// Grows large → automatically promoted to tree
+for (let i = 0; i < 600; i++) {
+  data = produceFast(data, $ => $.push(i))
+}
+// Now using tree structure internally!
+
+// Shrinks small → automatically demoted to native
+data = produceFast(data, $ => $.filter(x => x < 10))
+// Back to native array!
+```
+
+**You never need to think about this** - Pura handles it transparently. Same type, same API, always optimal performance.
+
+---
+
+## 🔄 Converting Back to Native: `unpura()`
+
+When you need to pass data to libraries that expect native types or want maximum read performance:
 
 ```typescript
-const puraList = pura([1, 2, 3, ...])
+import { produceFast, unpura } from 'pura'
 
-// ❌ Slow for hot loops
+// Pura handles immutable updates
+let state = produceFast(largeArray, $ => {
+  $.set(500, 999)
+  $.push(1000)
+})
+
+// Convert back to native for:
+// 1. Hot read loops (3-300x faster)
+const native = unpura(state)
 for (let i = 0; i < 10000; i++) {
-  puraList.get(i)  // Proxy overhead
+  console.log(native[i])  // Native speed
 }
 
-// ✅ Fast - convert once, read many
-const arr = puraList.toArray()
-for (let i = 0; i < 10000; i++) {
-  arr[i]  // Native speed
-}
+// 2. Third-party libraries
+const sorted = lodash.sortBy(unpura(state))
+
+// 3. Serialization
+const json = JSON.stringify(unpura(state))
+
+// 4. Framework interop (React, Vue, etc.)
+return <List items={unpura(state)} />
 ```
+
+**When to use `unpura()`:**
+- ✅ Hot read loops (iterate 1000+ times)
+- ✅ Passing to third-party libraries
+- ✅ JSON serialization
+- ✅ Framework rendering
+
+**When NOT needed:**
+- ❌ Mutations with `produce` or `produceFast` (handles automatically)
+- ❌ Small collections (<512) - already native!
 
 ---
 
