@@ -48,5 +48,9 @@
   "homepage": "https://pura.sylphx.com",
   "bugs": {
     "url": "https://github.com/SylphxAI/Pura/issues"
+  },
+  "funding": {
+    "type": "individual",
+    "url": "https://pura.sylphx.com"
   }
 }
