@@ -17,6 +17,10 @@
         "vue": "^3.5.24",
       },
     },
+    "packages/core": {
+      "name": "@sylphx/pura",
+      "version": "1.0.0",
+    },
   },
   "packages": {
     "@algolia/abtesting": ["@algolia/abtesting@1.10.0", "", { "dependencies": { "@algolia/client-common": "5.44.0", "@algolia/requester-browser-xhr": "5.44.0", "@algolia/requester-fetch": "5.44.0", "@algolia/requester-node-http": "5.44.0" } }, "sha512-mQT3jwuTgX8QMoqbIR7mPlWkqQqBPQaPabQzm37xg2txMlaMogK/4hCiiESGdg39MlHZOVHeV+0VJuE7f5UK8A=="],
@@ -266,6 +270,8 @@
     "@shikijs/types": ["@shikijs/types@2.5.0", "", { "dependencies": { "@shikijs/vscode-textmate": "^10.0.2", "@types/hast": "^3.0.4" } }, "sha512-ygl5yhxki9ZLNuNpPitBWvcy9fsSKKaRuO4BAlMyagszQidxcpLAr0qiW/q43DtSIDxO6hEbtYLiFZNXO/hdGw=="],
 
     "@shikijs/vscode-textmate": ["@shikijs/vscode-textmate@10.0.2", "", {}, "sha512-83yeghZ2xxin3Nj8z1NMd/NCuca+gsYXswywDy5bHvwlWL8tpTQmzGeUuHd9FC3E/SBEMvzJRwWEOz5gGes9Qg=="],
+
+    "@sylphx/pura": ["@sylphx/pura@workspace:packages/core"],
 
     "@types/estree": ["@types/estree@1.0.8", "", {}, "sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w=="],
 
