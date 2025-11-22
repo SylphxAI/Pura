@@ -859,22 +859,35 @@ import { SET_STATE_ENV, produceSet } from './internal/set-proxy';
 // ===== Pre-created Helper Prototypes (Performance Optimization) =====
 // Helper objects are structurally identical for each type, only the draft changes.
 // By pre-creating prototypes and using Object.create(), we avoid object allocation overhead.
+// Fixed shape for V8 Hidden Class optimization (JIT-friendly)
+
+interface ArrayHelperShape<T> {
+  __draft: T[];
+}
+
+interface MapHelperShape<K, V> {
+  __draft: Map<K, V>;
+}
+
+interface SetHelperShape<T> {
+  __draft: Set<T>;
+}
 
 const arrayHelperProto = {
-  set(this: any, index: number, value: any) {
+  set<T>(this: ArrayHelperShape<T>, index: number, value: T): void {
     this.__draft[index] = value;
   },
-  delete(this: any, index: number) {
+  delete<T>(this: ArrayHelperShape<T>, index: number): void {
     this.__draft.splice(index, 1);
   },
-  push(this: any, ...items: any[]) {
+  push<T>(this: ArrayHelperShape<T>, ...items: T[]): void {
     this.__draft.push(...items);
   },
-  splice(this: any, start: number, deleteCount: number = 0, ...items: any[]) {
+  splice<T>(this: ArrayHelperShape<T>, start: number, deleteCount: number = 0, ...items: T[]): void {
     this.__draft.splice(start, deleteCount, ...items);
   },
-  filter(this: any, fn: (item: any, index: number) => boolean) {
-    const toKeep: any[] = [];
+  filter<T>(this: ArrayHelperShape<T>, fn: (item: T, index: number) => boolean): void {
+    const toKeep: T[] = [];
     for (let i = 0; i < this.__draft.length; i++) {
       if (fn(this.__draft[i], i)) toKeep.push(this.__draft[i]);
     }
@@ -884,25 +897,25 @@ const arrayHelperProto = {
 };
 
 const mapHelperProto = {
-  set(this: any, key: any, value: any) {
+  set<K, V>(this: MapHelperShape<K, V>, key: K, value: V): void {
     this.__draft.set(key, value);
   },
-  delete(this: any, key: any) {
+  delete<K, V>(this: MapHelperShape<K, V>, key: K): void {
     this.__draft.delete(key);
   },
-  clear(this: any) {
+  clear<K, V>(this: MapHelperShape<K, V>): void {
     this.__draft.clear();
   }
 };
 
 const setHelperProto = {
-  add(this: any, value: any) {
+  add<T>(this: SetHelperShape<T>, value: T): void {
     this.__draft.add(value);
   },
-  delete(this: any, value: any) {
+  delete<T>(this: SetHelperShape<T>, value: T): void {
     this.__draft.delete(value);
   },
-  clear(this: any) {
+  clear<T>(this: SetHelperShape<T>): void {
     this.__draft.clear();
   }
 };
@@ -925,48 +938,66 @@ export function produceFast<T>(
   recipe: (helper: FastHelper<T>) => void
 ): T {
   // Check if it's pura tree → delegate to produceArray/Map/Set for optimal performance
-  if (Array.isArray(base) && ARRAY_STATE_ENV.has(base as any[])) {
+  if (Array.isArray(base) && ARRAY_STATE_ENV.has(base as unknown[])) {
     // Pura array: use produceArray with pre-created helper prototype
-    return produceArray(base, (draft: any) => {
-      const helper = Object.create(arrayHelperProto);
+    // Fixed shape ensures V8 Hidden Class optimization (JIT-friendly)
+    return produceArray(base, <U>(draft: U[]) => {
+      const helper = Object.create(arrayHelperProto) as ArrayHelperShape<U>;
       helper.__draft = draft;
-      recipe(helper as any);
+      recipe(helper as unknown as FastHelper<T>);
     }) as T;
   }
 
-  if (base instanceof Map && MAP_STATE_ENV.has(base as any)) {
+  if (base instanceof Map && MAP_STATE_ENV.has(base)) {
     // Pura map: use produceMap with pre-created helper prototype
-    return produceMap(base, (draft: any) => {
-      const helper = Object.create(mapHelperProto);
+    return produceMap(base, <K, V>(draft: Map<K, V>) => {
+      const helper = Object.create(mapHelperProto) as MapHelperShape<K, V>;
       helper.__draft = draft;
-      recipe(helper as any);
+      recipe(helper as unknown as FastHelper<T>);
     }) as T;
   }
 
-  if (base instanceof Set && SET_STATE_ENV.has(base as any)) {
+  if (base instanceof Set && SET_STATE_ENV.has(base)) {
     // Pura set: use produceSet with pre-created helper prototype
-    return produceSet(base, (draft: any) => {
-      const helper = Object.create(setHelperProto);
+    return produceSet(base, <U>(draft: Set<U>) => {
+      const helper = Object.create(setHelperProto) as SetHelperShape<U>;
       helper.__draft = draft;
-      recipe(helper as any);
+      recipe(helper as unknown as FastHelper<T>);
     }) as T;
   }
 
   // Native structures: use fast path (mutation-collection)
   if (Array.isArray(base)) {
-    return produceFastArray(base as any, recipe as any) as any;
+    type ElementType = T extends Array<infer E> ? E : never;
+    return produceFastArray<ElementType>(
+      base as Array<ElementType>,
+      recipe as (helper: ArrayHelper<ElementType>) => void
+    ) as T;
   }
 
   if (base instanceof Map) {
-    return produceFastMap(base as any, recipe as any) as any;
+    type KeyType = T extends Map<infer K, infer V> ? K : never;
+    type ValueType = T extends Map<infer K, infer V> ? V : never;
+    return produceFastMap<KeyType, ValueType>(
+      base as Map<KeyType, ValueType>,
+      recipe as (helper: MapHelper<KeyType, ValueType>) => void
+    ) as T;
   }
 
   if (base instanceof Set) {
-    return produceFastSet(base as any, recipe as any) as any;
+    type ValueType = T extends Set<infer V> ? V : never;
+    return produceFastSet<ValueType>(
+      base as Set<ValueType>,
+      recipe as (helper: SetHelper<ValueType>) => void
+    ) as T;
   }
 
   if (base !== null && typeof base === 'object') {
-    return produceFastObject(base as object, recipe as any) as any;
+    type ObjectType = T extends object ? T : never;
+    return produceFastObject<ObjectType>(
+      base as ObjectType,
+      recipe as (helper: ObjectHelper<ObjectType>) => void
+    ) as T;
   }
 
   return base;
