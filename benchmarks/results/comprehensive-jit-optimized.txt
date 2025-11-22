@@ -1,0 +1,229 @@
+$ vitest bench benchmarks/comprehensive.bench.ts
+Benchmarking is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ DEV  v2.1.9 /Users/kyle/pura
+
+ ✓ benchmarks/comprehensive.bench.ts > Array (Small: 100) - Single Update 16932ms
+     name                                hz     min     max    mean     p75     p99    p995    p999     rme   samples
+   · [Direct] Native          33,365,780.73  0.0000  1.2131  0.0000  0.0000  0.0000  0.0000  0.0001  ±0.84%  16682891   fastest
+   · [Direct] Pura            32,120,323.94  0.0000  0.5060  0.0000  0.0000  0.0000  0.0000  0.0001  ±0.44%  16060162
+   · [Immutable] Native Copy  18,387,438.86  0.0000  4.9516  0.0001  0.0000  0.0001  0.0003  0.0008  ±2.31%   9193720
+   · [Immutable] Produce       3,814,907.73  0.0001  0.3112  0.0003  0.0003  0.0005  0.0005  0.0009  ±0.46%   1907454   slowest
+   · [Immutable] ProduceFast   9,054,130.77  0.0000  2.5439  0.0001  0.0001  0.0002  0.0003  0.0005  ±1.20%   4527066
+ ✓ benchmarks/comprehensive.bench.ts > Array (Small: 100) - Multiple Updates (10) 5138ms
+     name                                hz     min     max    mean     p75     p99    p995    p999     rme  samples
+   · [Immutable] Native Copy  17,201,873.95  0.0000  0.3966  0.0001  0.0001  0.0001  0.0002  0.0005  ±0.86%  8602052   fastest
+   · [Immutable] Produce         870,830.39  0.0007  3.3288  0.0011  0.0011  0.0020  0.0021  0.0029  ±2.29%   435416   slowest
+   · [Immutable] ProduceFast   4,625,973.80  0.0000  2.6581  0.0002  0.0002  0.0007  0.0009  0.0015  ±1.56%  2312987
+ ✓ benchmarks/comprehensive.bench.ts > Array (Small: 100) - Push 4456ms
+     name                                 hz     min     max    mean     p75     p99    p995    p999     rme  samples
+   · [Immutable] Native Spread  7,782,344.97  0.0000  4.9959  0.0001  0.0001  0.0005  0.0006  0.0010  ±4.49%  3891173   fastest
+   · [Immutable] Produce        3,637,310.44  0.0001  0.5436  0.0003  0.0003  0.0006  0.0007  0.0010  ±0.63%  1818656   slowest
+   · [Immutable] ProduceFast    4,668,845.22  0.0001  0.3632  0.0002  0.0002  0.0005  0.0007  0.0010  ±0.84%  2334423
+ ✓ benchmarks/comprehensive.bench.ts > Array (Medium: 1K) - Single Update 8649ms
+     name                                hz     min      max    mean     p75     p99    p995    p999      rme   samples
+   · [Direct] Native          33,558,121.46  0.0000   0.1327  0.0000  0.0000  0.0000  0.0000  0.0001   ±0.09%  16779061   fastest
+   · [Direct] Pura             4,325,032.98  0.0001   1.3967  0.0002  0.0002  0.0005  0.0007  0.0019   ±1.78%   2162517
+   · [Immutable] Native Copy      26,002.55  0.0285   3.2765  0.0385  0.0384  0.0709  0.0774  0.1292   ±2.40%     13002   slowest
+   · [Immutable] Produce         672,361.55  0.0004  17.0877  0.0015  0.0008  0.0017  0.0021  0.0095  ±21.24%    336181
+   · [Immutable] ProduceFast     713,963.87  0.0004  14.6890  0.0014  0.0007  0.0018  0.0021  0.0088  ±19.44%    356982
+ ✓ benchmarks/comprehensive.bench.ts > Array (Medium: 1K) - Multiple Updates (10) 1941ms
+     name                             hz     min      max    mean     p75     p99    p995    p999      rme  samples
+   · [Immutable] Native Copy   24,922.01  0.0325   4.3518  0.0401  0.0403  0.0707  0.0727  0.0847   ±1.73%    12462   slowest
+   · [Immutable] Produce      231,848.77  0.0017  20.1476  0.0043  0.0027  0.0058  0.0150  0.0303  ±18.01%   116499
+   · [Immutable] ProduceFast  255,661.04  0.0016  13.0943  0.0039  0.0024  0.0050  0.0057  0.0235  ±15.55%   127831   fastest
+ ✓ benchmarks/comprehensive.bench.ts > Array (Large: 10K) - Single Update 8332ms
+     name                                hz     min      max    mean     p75     p99    p995    p999      rme   samples
+   · [Direct] Native          30,114,393.71  0.0000   4.3428  0.0000  0.0000  0.0000  0.0001  0.0001   ±2.05%  15057198   fastest
+   · [Direct] Pura             3,532,388.25  0.0001   0.3675  0.0003  0.0003  0.0005  0.0006  0.0016   ±0.62%   1766195
+   · [Immutable] Native Copy       2,328.47  0.3180   0.9826  0.4295  0.4236  0.7762  0.8123  0.9648   ±1.53%      1165   slowest
+   · [Immutable] Produce         540,058.19  0.0004  29.9722  0.0019  0.0009  0.0024  0.0036  0.0261  ±25.61%    271289
+   · [Immutable] ProduceFast     571,454.87  0.0004  20.9248  0.0017  0.0008  0.0022  0.0032  0.0342  ±22.44%    288118
+ ✓ benchmarks/comprehensive.bench.ts > Array (Large: 10K) - Multiple Updates (100) 1852ms
+     name                            hz     min     max    mean     p75     p99    p995    p999      rme  samples
+   · [Immutable] Native Copy   2,522.93  0.3120  1.3023  0.3964  0.4033  0.7315  0.7552  1.2005   ±1.10%     1262   slowest
+   · [Immutable] Produce      27,031.90  0.0152  8.9376  0.0370  0.0378  0.0679  0.0886  5.9742  ±11.87%    13516   fastest
+   · [Immutable] ProduceFast  24,315.56  0.0156  9.4692  0.0411  0.0379  0.0810  0.1493  6.8812  ±12.91%    12158
+ ✓ benchmarks/comprehensive.bench.ts > Object - Single Shallow Update 8760ms
+     name                                  hz     min     max    mean     p75     p99    p995    p999     rme   samples
+   · [Immutable] Native Spread  28,921,354.21  0.0000  1.0245  0.0000  0.0000  0.0001  0.0001  0.0001  ±0.45%  14460678   fastest
+   · [Immutable] Produce         5,727,937.89  0.0000  0.9453  0.0002  0.0002  0.0003  0.0004  0.0010  ±0.90%   2863969   slowest
+   · [Immutable] ProduceFast     9,526,131.49  0.0000  8.7288  0.0001  0.0001  0.0002  0.0002  0.0010  ±4.81%   4763066
+ ✓ benchmarks/comprehensive.bench.ts > Object - Multiple Shallow Updates 8112ms
+     name                                  hz     min      max    mean     p75     p99    p995    p999      rme   samples
+   · [Immutable] Native Spread  21,450,683.79  0.0000  14.5317  0.0000  0.0000  0.0001  0.0001  0.0001  ±11.02%  10731571   fastest
+   · [Immutable] Produce         3,757,277.81  0.0001   2.5942  0.0003  0.0002  0.0004  0.0005  0.0017   ±1.79%   1878639   slowest
+   · [Immutable] ProduceFast     6,794,165.06  0.0000  45.5127  0.0001  0.0002  0.0002  0.0002  0.0004  ±18.01%   3397083
+ ✓ benchmarks/comprehensive.bench.ts > Object - Single Deep Update 6347ms
+     name                                         hz     min     max    mean     p75     p99    p995    p999     rme   samples
+   · [Immutable] Native Nested Spread  23,713,086.72  0.0000  0.2120  0.0000  0.0000  0.0001  0.0001  0.0001  ±0.41%  11856544   fastest
+   · [Immutable] Produce                1,066,401.57  0.0005  4.1643  0.0009  0.0011  0.0014  0.0017  0.0066  ±4.11%    533201   slowest
+   · [Immutable] ProduceFast            4,201,407.57  0.0001  0.6211  0.0002  0.0002  0.0005  0.0008  0.0016  ±0.98%   2100704
+ ✓ benchmarks/comprehensive.bench.ts > Object - Multiple Deep Updates 5130ms
+     name                                         hz     min     max    mean     p75     p99    p995    p999     rme  samples
+   · [Immutable] Native Nested Spread  17,897,338.51  0.0000  0.7285  0.0001  0.0001  0.0001  0.0001  0.0001  ±0.48%  8948833   fastest
+   · [Immutable] Produce                  679,509.88  0.0011  0.9998  0.0015  0.0014  0.0025  0.0027  0.0072  ±0.93%   339755   slowest
+   · [Immutable] ProduceFast            1,695,015.49  0.0003  1.8984  0.0006  0.0007  0.0010  0.0015  0.0110  ±1.44%   847509
+ ✓ benchmarks/comprehensive.bench.ts > Map (Small: 100) - Single Set 1924ms
+     name                             hz     min      max    mean     p75     p99    p995    p999     rme  samples
+   · [Immutable] Native Copy  213,189.07  0.0031   1.4071  0.0047  0.0043  0.0090  0.0169  0.0332  ±1.23%   106595   slowest
+   · [Immutable] Produce      219,919.13  0.0033  19.0629  0.0045  0.0040  0.0084  0.0092  0.0284  ±7.54%   109960
+   · [Immutable] ProduceFast  234,280.43  0.0032   2.0933  0.0043  0.0039  0.0080  0.0088  0.0248  ±1.44%   117141   fastest
+ ✓ benchmarks/comprehensive.bench.ts > Map (Small: 100) - Multiple Sets (10) 1923ms
+     name                             hz     min     max    mean     p75     p99    p995    p999     rme  samples
+   · [Immutable] Native Copy  229,114.72  0.0034  1.3530  0.0044  0.0040  0.0084  0.0091  0.0219  ±1.09%   114558   fastest
+   · [Immutable] Produce      217,773.83  0.0038  0.4294  0.0046  0.0042  0.0088  0.0095  0.0157  ±0.72%   108887   slowest
+   · [Immutable] ProduceFast  218,098.30  0.0036  0.4341  0.0046  0.0042  0.0086  0.0094  0.0203  ±0.72%   109050
+ ✓ benchmarks/comprehensive.bench.ts > Map (Medium: 1K) - Single Set 1821ms
+     name                            hz     min     max    mean     p75     p99    p995    p999     rme  samples
+   · [Immutable] Native Copy  23,793.86  0.0318  3.8351  0.0420  0.0376  0.0879  0.1563  0.4787  ±2.28%    11897
+   · [Immutable] Produce       2,075.33  0.3240  7.7414  0.4819  0.3998  4.1688  4.6727  5.4880  ±7.23%     1038   slowest
+   · [Immutable] ProduceFast  25,112.82  0.0292  0.6838  0.0398  0.0363  0.0809  0.0905  0.4967  ±1.12%    12557   fastest
+ ✓ benchmarks/comprehensive.bench.ts > Map (Medium: 1K) - Delete 1819ms
+     name                            hz     min      max    mean     p75     p99    p995     p999      rme  samples
+   · [Immutable] Native Copy  23,737.74  0.0324   0.6924  0.0421  0.0387  0.0873  0.0968   0.5271   ±1.17%    11869   fastest
+   · [Immutable] Produce       1,752.97  0.3358  53.1244  0.5705  0.5416  3.7692  4.8324  53.1244  ±21.40%      877   slowest
+   · [Immutable] ProduceFast  20,977.58  0.0320   5.6088  0.0477  0.0544  0.1001  0.1236   0.2795   ±2.33%    10489
+ ✓ benchmarks/comprehensive.bench.ts > Set (Small: 100) - Single Add 2851ms
+     name                               hz     min     max    mean     p75     p99    p995    p999     rme  samples
+   · [Immutable] Native Copy  2,151,477.86  0.0003  2.0753  0.0005  0.0004  0.0009  0.0010  0.0024  ±1.29%  1075739   fastest
+   · [Immutable] Produce      1,698,214.47  0.0004  0.2293  0.0006  0.0005  0.0012  0.0013  0.0022  ±0.48%   849108   slowest
+   · [Immutable] ProduceFast  1,739,895.09  0.0003  0.8426  0.0006  0.0005  0.0012  0.0015  0.0070  ±0.86%   869949
+ ✓ benchmarks/comprehensive.bench.ts > Set (Small: 100) - Multiple Adds (10) 2527ms
+     name                               hz     min     max    mean     p75     p99    p995    p999     rme  samples
+   · [Immutable] Native Copy  1,853,817.22  0.0004  6.8635  0.0005  0.0005  0.0010  0.0012  0.0017  ±2.72%   926909   fastest
+   · [Immutable] Produce      1,119,965.38  0.0007  0.6569  0.0009  0.0008  0.0016  0.0018  0.0033  ±0.53%   559983   slowest
+   · [Immutable] ProduceFast  1,178,745.78  0.0005  6.4439  0.0008  0.0011  0.0015  0.0019  0.0038  ±4.88%   589373
+ ✓ benchmarks/comprehensive.bench.ts > Set (Medium: 1K) - Single Add 1920ms
+     name                             hz     min     max    mean     p75     p99    p995    p999     rme  samples
+   · [Immutable] Native Copy  235,750.99  0.0030  3.0223  0.0042  0.0039  0.0080  0.0086  0.0262  ±1.28%   117877
+   · [Immutable] Produce        2,306.82  0.3255  5.5383  0.4335  0.3709  2.7038  2.9225  5.0281  ±5.05%     1154   slowest
+   · [Immutable] ProduceFast  243,311.96  0.0030  4.2498  0.0041  0.0040  0.0081  0.0086  0.0243  ±1.75%   121656   fastest
+ ✓ benchmarks/comprehensive.bench.ts > Set (Medium: 1K) - Delete 1924ms
+     name                             hz     min     max    mean     p75     p99    p995    p999     rme  samples
+   · [Immutable] Native Copy  260,528.26  0.0030  0.2591  0.0038  0.0038  0.0071  0.0077  0.0175  ±0.49%   130265   fastest
+   · [Immutable] Produce        2,325.52  0.3301  4.9368  0.4300  0.3714  3.3885  3.5848  4.6576  ±5.72%     1163   slowest
+   · [Immutable] ProduceFast  230,094.53  0.0030  0.3810  0.0043  0.0040  0.0099  0.0160  0.0338  ±0.60%   115048
+ ✓ benchmarks/comprehensive.bench.ts > Array (Medium: 1K) - Sequential Read 1530ms
+     name                     hz     min     max    mean     p75     p99    p995    p999     rme  samples
+   · [Read] Native  1,934,666.93  0.0004  0.2501  0.0005  0.0005  0.0009  0.0009  0.0068  ±0.31%   967334   fastest
+   · [Read] Pura        6,452.16  0.1307  1.3715  0.1550  0.1478  0.2759  0.2996  0.4677  ±1.03%     3227
+ ✓ benchmarks/comprehensive.bench.ts > Array (Medium: 1K) - Iterator 1484ms
+     name                              hz     min     max    mean     p75     p99    p995    p999     rme  samples
+   · [Read] Native for...of  1,417,767.90  0.0005  0.9951  0.0007  0.0008  0.0011  0.0011  0.0076  ±0.56%   708884   fastest
+   · [Read] Pura for...of       21,931.40  0.0353  3.8432  0.0456  0.0567  0.0801  0.0884  0.2008  ±1.71%    10966
+ ✓ benchmarks/comprehensive.bench.ts > Array (Large: 10K) - Map Operation 1228ms
+     name                        hz     min      max    mean     p75     p99    p995    p999      rme  samples
+   · [Read] Native map()  12,896.19  0.0654   0.3691  0.0775  0.0735  0.1365  0.1453  0.2711   ±0.61%     6449   fastest
+   · [Read] Pura map()     2,772.36  0.2231  31.5654  0.3607  0.3420  0.9365  1.1929  5.2357  ±12.21%     1443
+ ✓ benchmarks/comprehensive.bench.ts > Array (Large: 10K) - Filter Operation 1210ms
+     name                           hz     min     max    mean     p75     p99    p995    p999     rme  samples
+   · [Read] Native filter()  10,033.21  0.0725  2.9925  0.0997  0.1170  0.2432  0.3525  0.6393  ±1.69%     5017   fastest
+   · [Read] Pura filter()     3,468.62  0.2128  0.9841  0.2883  0.2486  0.5592  0.6150  0.7004  ±1.72%     1735
+ ✓ benchmarks/comprehensive.bench.ts > Array (Large: 10K) - Reduce Operation 1209ms
+     name                           hz     min     max    mean     p75     p99    p995    p999     rme  samples
+   · [Read] Native reduce()  13,663.61  0.0615  1.5089  0.0732  0.0690  0.1152  0.1223  0.1713  ±0.88%     6832   fastest
+   · [Read] Pura reduce()     3,728.58  0.1730  1.6542  0.2682  0.3612  0.5829  0.8129  1.4086  ±1.95%     1865
+
+ BENCH  Summary
+
+  [Direct] Native - benchmarks/comprehensive.bench.ts > Array (Small: 100) - Single Update
+    1.04x faster than [Direct] Pura
+    1.81x faster than [Immutable] Native Copy
+    3.69x faster than [Immutable] ProduceFast
+    8.75x faster than [Immutable] Produce
+
+  [Immutable] Native Copy - benchmarks/comprehensive.bench.ts > Array (Small: 100) - Multiple Updates (10)
+    3.72x faster than [Immutable] ProduceFast
+    19.75x faster than [Immutable] Produce
+
+  [Immutable] Native Spread - benchmarks/comprehensive.bench.ts > Array (Small: 100) - Push
+    1.67x faster than [Immutable] ProduceFast
+    2.14x faster than [Immutable] Produce
+
+  [Direct] Native - benchmarks/comprehensive.bench.ts > Array (Medium: 1K) - Single Update
+    7.76x faster than [Direct] Pura
+    47.00x faster than [Immutable] ProduceFast
+    49.91x faster than [Immutable] Produce
+    1290.57x faster than [Immutable] Native Copy
+
+  [Immutable] ProduceFast - benchmarks/comprehensive.bench.ts > Array (Medium: 1K) - Multiple Updates (10)
+    1.10x faster than [Immutable] Produce
+    10.26x faster than [Immutable] Native Copy
+
+  [Direct] Native - benchmarks/comprehensive.bench.ts > Array (Large: 10K) - Single Update
+    8.53x faster than [Direct] Pura
+    52.70x faster than [Immutable] ProduceFast
+    55.76x faster than [Immutable] Produce
+    12933.13x faster than [Immutable] Native Copy
+
+  [Immutable] Produce - benchmarks/comprehensive.bench.ts > Array (Large: 10K) - Multiple Updates (100)
+    1.11x faster than [Immutable] ProduceFast
+    10.71x faster than [Immutable] Native Copy
+
+  [Immutable] Native Spread - benchmarks/comprehensive.bench.ts > Object - Single Shallow Update
+    3.04x faster than [Immutable] ProduceFast
+    5.05x faster than [Immutable] Produce
+
+  [Immutable] Native Spread - benchmarks/comprehensive.bench.ts > Object - Multiple Shallow Updates
+    3.16x faster than [Immutable] ProduceFast
+    5.71x faster than [Immutable] Produce
+
+  [Immutable] Native Nested Spread - benchmarks/comprehensive.bench.ts > Object - Single Deep Update
+    5.64x faster than [Immutable] ProduceFast
+    22.24x faster than [Immutable] Produce
+
+  [Immutable] Native Nested Spread - benchmarks/comprehensive.bench.ts > Object - Multiple Deep Updates
+    10.56x faster than [Immutable] ProduceFast
+    26.34x faster than [Immutable] Produce
+
+  [Immutable] ProduceFast - benchmarks/comprehensive.bench.ts > Map (Small: 100) - Single Set
+    1.07x faster than [Immutable] Produce
+    1.10x faster than [Immutable] Native Copy
+
+  [Immutable] Native Copy - benchmarks/comprehensive.bench.ts > Map (Small: 100) - Multiple Sets (10)
+    1.05x faster than [Immutable] ProduceFast
+    1.05x faster than [Immutable] Produce
+
+  [Immutable] ProduceFast - benchmarks/comprehensive.bench.ts > Map (Medium: 1K) - Single Set
+    1.06x faster than [Immutable] Native Copy
+    12.10x faster than [Immutable] Produce
+
+  [Immutable] Native Copy - benchmarks/comprehensive.bench.ts > Map (Medium: 1K) - Delete
+    1.13x faster than [Immutable] ProduceFast
+    13.54x faster than [Immutable] Produce
+
+  [Immutable] Native Copy - benchmarks/comprehensive.bench.ts > Set (Small: 100) - Single Add
+    1.24x faster than [Immutable] ProduceFast
+    1.27x faster than [Immutable] Produce
+
+  [Immutable] Native Copy - benchmarks/comprehensive.bench.ts > Set (Small: 100) - Multiple Adds (10)
+    1.57x faster than [Immutable] ProduceFast
+    1.66x faster than [Immutable] Produce
+
+  [Immutable] ProduceFast - benchmarks/comprehensive.bench.ts > Set (Medium: 1K) - Single Add
+    1.03x faster than [Immutable] Native Copy
+    105.48x faster than [Immutable] Produce
+
+  [Immutable] Native Copy - benchmarks/comprehensive.bench.ts > Set (Medium: 1K) - Delete
+    1.13x faster than [Immutable] ProduceFast
+    112.03x faster than [Immutable] Produce
+
+  [Read] Native - benchmarks/comprehensive.bench.ts > Array (Medium: 1K) - Sequential Read
+    299.85x faster than [Read] Pura
+
+  [Read] Native for...of - benchmarks/comprehensive.bench.ts > Array (Medium: 1K) - Iterator
+    64.65x faster than [Read] Pura for...of
+
+  [Read] Native map() - benchmarks/comprehensive.bench.ts > Array (Large: 10K) - Map Operation
+    4.65x faster than [Read] Pura map()
+
+  [Read] Native filter() - benchmarks/comprehensive.bench.ts > Array (Large: 10K) - Filter Operation
+    2.89x faster than [Read] Pura filter()
+
+  [Read] Native reduce() - benchmarks/comprehensive.bench.ts > Array (Large: 10K) - Reduce Operation
+    3.66x faster than [Read] Pura reduce()
+
+ PASS  Waiting for file changes...
+       press h to show help, press q to quit

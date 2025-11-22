@@ -328,7 +328,7 @@ xychart-beta
 - Complex nested logic where helper API is less readable
 - Existing Immer codebase (though migration to Pura brings 1.06-105x speedup)
 
-**Raw benchmark data**: See `/tmp/jit-comprehensive-results.txt` or run `bun bench benchmarks/comprehensive.bench.ts`
+**Raw benchmark data**: See [`benchmarks/results/comprehensive-jit-optimized.txt`](benchmarks/results/comprehensive-jit-optimized.txt) or run `bun bench benchmarks/comprehensive.bench.ts`
 
 ---
 
