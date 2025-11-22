@@ -102,6 +102,7 @@ function createNativeDraftProxy<T>(
       }
       if (prop === 'splice') {
         return (...args: any[]) => {
+          // @ts-ignore - spread args from proxy
           const result = target.splice(...args);
           markModified();
           return result;

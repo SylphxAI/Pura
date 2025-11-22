@@ -539,7 +539,7 @@ function applyMutationTree<T>(base: T, tree: MutationTreeNode): T {
     }
   }
   for (const key in changes) {
-    if (!(key in base)) {
+    if (!(key in (base as object))) {
       result[key] = changes[key];
     }
   }

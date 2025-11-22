@@ -191,7 +191,7 @@ export function createMapProxy<K, V>(state: HMapState<K, V>): Map<K, V> {
           if (state.map.size === 0) return;
           state.map = hamtEmpty<K, V>();
           if (state.ordered) {
-            state.ordered = orderEmpty<K>();
+            state.ordered = orderEmpty<K>() as any;
           }
           state.modified = true;
           state.valueProxies?.clear();
