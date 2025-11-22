@@ -15,8 +15,7 @@
   "files": [
     "dist",
     "README.md",
-    "CHANGELOG.md",
-    "../../docs"
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc -p .",
