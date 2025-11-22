@@ -1,7 +1,7 @@
 {
   "name": "@sylphx/pura",
   "version": "1.0.1",
-  "description": "Pure FP for TypeScript - Fast, Type-Safe, Zero Compromise. Persistent data structures (HAMT, RRB-Tree) that make immutability faster than mutation.",
+  "description": "Returns native JavaScript types (Array/Object/Map/Set). Immutability faster than mutation. Dual mode: immutable + mutable patterns. 100% library compatible.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -29,7 +29,12 @@
     "rrb-tree",
     "data-structures",
     "immer-alternative",
-    "structural-sharing"
+    "structural-sharing",
+    "native-types",
+    "native",
+    "proxy",
+    "dual-mode",
+    "compatible"
   ],
   "author": "SylphX Ltd",
   "license": "MIT",

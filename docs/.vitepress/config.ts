@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   title: 'Pura',
-  description: 'Pure FP for TypeScript. Fast, Type-Safe, Zero Compromise.',
+  description: 'Returns native JavaScript types. Immutability faster than mutation. Zero learning curve. 100% library compatible.',
   base: '/',
 
   themeConfig: {
@@ -89,7 +89,13 @@ export default defineConfig({
   head: [
     ['link', { rel: 'icon', href: '/favicon.ico' }],
     ['meta', { name: 'theme-color', content: '#3eaf7c' }],
-    ['meta', { name: 'og:type', content: 'website' }],
-    ['meta', { name: 'og:site_name', content: 'Pura' }],
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:site_name', content: 'Pura' }],
+    ['meta', { property: 'og:title', content: 'Pura - Pure FP for TypeScript' }],
+    ['meta', { property: 'og:description', content: 'Returns native JavaScript types. Immutability faster than mutation. Zero learning curve. 100% library compatible.' }],
+    ['meta', { property: 'og:url', content: 'https://pura.sylphx.com' }],
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:title', content: 'Pura - Pure FP for TypeScript' }],
+    ['meta', { name: 'twitter:description', content: 'Returns native JavaScript types. Immutability faster than mutation. Zero learning curve. 100% library compatible.' }],
   ]
 })
