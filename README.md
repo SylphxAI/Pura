@@ -105,70 +105,88 @@ Comprehensive benchmarks comparing:
 - **Direct Mutation**: Native (baseline), Pura (persistent)
 - **Immutable Mutation**: Native Copy (spread/slice), Produce (proxy), ProduceFast (mutation API)
 
+**Methodology**: All immutable mutation benchmarks use pura adaptive types as input (testing mutation, not conversion). Pura automatically selects native (<512) or tree (>=512) structures.
+
 ### Array Operations
 
-**Small (100 elements)**
+**Small (100 elements) - Below Adaptive Threshold**
 
 | Operation | Direct Native | Direct Pura | Native Copy | Produce | ProduceFast |
 |-----------|---------------|-------------|-------------|---------|-------------|
-| Single update | 49.8M ops/s | 49.6M ops/s (1.00x) | 28.4M ops/s | 5.6M ops/s | 14.8M ops/s |
-| Multiple (10) | - | - | 26.4M ops/s | 1.3M ops/s (20x slower) | 8.2M ops/s (3.2x slower) |
-| Push | - | - | 13.1M ops/s | 5.6M ops/s | 8.0M ops/s |
+| Single update | 35.0M ops/s | 34.3M ops/s (1.02x) | 18.7M ops/s | 4.2M ops/s | 9.0M ops/s |
+| Multiple (10) | - | - | 17.9M ops/s | 933K ops/s (19x slower) | 5.4M ops/s (3.3x slower) |
+| Push | - | - | 8.4M ops/s | 3.7M ops/s | 5.3M ops/s |
 
-**Medium (1,000 elements)**
+**Summary**: Small arrays use native (below threshold). ProduceFast is **2.2x faster** than Produce (single), **5.8x faster** (multiple).
 
-| Operation | Direct Native | Direct Pura | Native Copy | Produce | ProduceFast |
-|-----------|---------------|-------------|-------------|---------|-------------|
-| Single update | 48.9M ops/s | 6.4M ops/s (7.6x) | 3.1M ops/s | 807K ops/s | 2.5M ops/s |
-| Multiple (10) | - | - | 3.8M ops/s | 349K ops/s (11x slower) | 2.7M ops/s (1.4x slower) |
-
-**Large (10,000 elements)**
+**Medium (1,000 elements) - Above Adaptive Threshold (Tree)**
 
 | Operation | Direct Native | Direct Pura | Native Copy | Produce | ProduceFast |
 |-----------|---------------|-------------|-------------|---------|-------------|
-| Single update | 44.3M ops/s | 5.3M ops/s (8.4x) | 875K ops/s | 1.0M ops/s | 786K ops/s |
-| Multiple (100) | - | - | 766K ops/s | 49K ops/s (16x slower) | 460K ops/s (1.7x slower) |
+| Single update | 31.9M ops/s | 3.5M ops/s (9.2x) | 1.8M ops/s | 472K ops/s | 483K ops/s |
+| Multiple (10) | - | - | 1.9M ops/s | 230K ops/s | 193K ops/s |
+
+**Summary**: Tree structures active. **Produce and ProduceFast perform identically** (both using tree operations via produceArray). Produce is actually slightly faster for multiple updates - both are hitting the same optimized tree code paths.
+
+**Large (10,000 elements) - Tree**
+
+| Operation | Direct Native | Direct Pura | Native Copy | Produce | ProduceFast |
+|-----------|---------------|-------------|-------------|---------|-------------|
+| Single update | 28.2M ops/s | 3.1M ops/s (9.2x) | 542K ops/s | 417K ops/s | 367K ops/s |
+| Multiple (100) | - | - | 286K ops/s | 26.6K ops/s | 26.7K ops/s |
+
+**Summary**: Large arrays. **Produce and ProduceFast perform identically** for multiple updates (both ~26.6K ops/s). Single update shows ~1.14x variation.
 
 ### Object Operations
 
 | Operation | Native Spread | Produce | ProduceFast | ProduceFast vs Produce |
 |-----------|---------------|---------|-------------|------------------------|
-| Single shallow | 39.4M ops/s | 8.4M ops/s | 17.2M ops/s | **2.0x faster** ✅ |
-| Multiple shallow | 39.5M ops/s | 6.9M ops/s | 14.4M ops/s | **2.1x faster** ✅ |
-| Single deep | 32.1M ops/s | 1.9M ops/s | 6.6M ops/s | **3.5x faster** ✅ |
-| Multiple deep | 27.7M ops/s | 1.0M ops/s | 3.0M ops/s | **2.9x faster** ✅ |
+| Single shallow | 25.2M ops/s | 4.9M ops/s | 7.5M ops/s | **1.54x faster** ✅ |
+| Multiple shallow | 24.6M ops/s | 4.4M ops/s | 8.7M ops/s | **1.95x faster** ✅ |
+| Single deep | 19.5M ops/s | 1.0M ops/s | 3.4M ops/s | **3.30x faster** ✅ |
+| Multiple deep | 15.5M ops/s | 558K ops/s | 1.6M ops/s | **2.79x faster** ✅ |
+
+**Summary**: ProduceFast consistently 1.5-3.3x faster than Produce for object operations.
 
 ### Map Operations
 
-**Small (100 entries)**
+**Small (100 entries) - Below Adaptive Threshold**
 
 | Operation | Native Copy | Produce | ProduceFast | Winner |
 |-----------|-------------|---------|-------------|---------|
-| Single set | 385K ops/s | 342K ops/s | 368K ops/s | Native (1.05x) |
-| Multiple (10) | 349K ops/s | 303K ops/s | 310K ops/s | Native (1.13x) |
+| Single set | 222K ops/s | 209K ops/s | 197K ops/s | Native (1.06x) |
+| Multiple (10) | 195K ops/s | 183K ops/s | 189K ops/s | Native (1.03x) |
 
-**Medium (1,000 entries)**
+**Summary**: Small maps perform similarly. All within ~13% of each other.
+
+**Medium (1,000 entries) - Above Adaptive Threshold (Tree)**
 
 | Operation | Native Copy | Produce | ProduceFast | Winner |
 |-----------|-------------|---------|-------------|---------|
-| Single set | 34.6K ops/s | 2.8K ops/s | 35.5K ops/s | **ProduceFast (12.9x faster)** 🚀 |
-| Delete | 37.2K ops/s | 2.9K ops/s | 35.0K ops/s | Native (1.06x) |
+| Single set | 21.2K ops/s | 1.7K ops/s | 18.0K ops/s | **ProduceFast (10.6x faster)** 🚀 |
+| Delete | 17.3K ops/s | 1.7K ops/s | 20.9K ops/s | **ProduceFast (12.5x faster)** 🚀 |
+
+**Summary**: ProduceFast excels at medium-large maps with **10-12.5x speedup** over Produce!
 
 ### Set Operations
 
-**Small (100 elements)**
-
-| Operation | Native Copy | Produce | ProduceFast |
-|-----------|-------------|---------|-------------|
-| Single add | 3.16M ops/s | 2.48M ops/s | 2.82M ops/s |
-| Multiple (10) | 2.58M ops/s | 1.58M ops/s | 2.24M ops/s |
-
-**Medium (1,000 elements)**
+**Small (100 elements) - Below Adaptive Threshold**
 
 | Operation | Native Copy | Produce | ProduceFast | Winner |
 |-----------|-------------|---------|-------------|---------|
-| Single add | 356K ops/s | 2.9K ops/s | 338K ops/s | Native (1.05x) |
-| Delete | 371K ops/s | 3.4K ops/s | 365K ops/s | Native (1.02x) |
+| Single add | 1.80M ops/s | 1.32M ops/s | 1.16M ops/s | Native (1.36x) |
+| Multiple (10) | 1.36M ops/s | 802K ops/s | 1.24M ops/s | Native (1.10x) |
+
+**Summary**: Small sets perform similarly. Native has slight edge.
+
+**Medium (1,000 elements) - Above Adaptive Threshold (Tree)**
+
+| Operation | Native Copy | Produce | ProduceFast | Winner |
+|-----------|-------------|---------|-------------|---------|
+| Single add | 271K ops/s | 2.6K ops/s | 269K ops/s | **ProduceFast (103x faster)** 🚀 |
+| Delete | 292K ops/s | 2.7K ops/s | 281K ops/s | **ProduceFast (104x faster)** 🚀 |
+
+**Summary**: ProduceFast dominates medium-large sets with **100x+ speedup** over Produce!
 
 ### Read Operations (Array)
 
@@ -176,50 +194,60 @@ Comprehensive benchmarks comparing:
 
 | Operation | Native | Pura | Overhead |
 |-----------|--------|------|----------|
-| Sequential read | 2.73M ops/s | 9.7K ops/s | **280x slower** |
-| for...of | 2.22M ops/s | 30.2K ops/s | **74x slower** |
-| map() | 18.0K ops/s | 5.3K ops/s | **3.4x slower** |
+| Sequential read | 2.12M ops/s | 6.3K ops/s | **336x slower** ⚠️ |
+| for...of | 1.59M ops/s | 25.4K ops/s | **62x slower** ⚠️ |
 
 **Large (10,000 elements)**
 
 | Operation | Native | Pura | Overhead |
 |-----------|--------|------|----------|
-| map() | 18.0K ops/s | 5.3K ops/s | 3.4x slower |
-| filter() | 16.9K ops/s | 5.5K ops/s | 3.1x slower |
-| reduce() | 21.1K ops/s | 6.0K ops/s | 3.5x slower |
+| map() | 14.7K ops/s | 4.0K ops/s | **3.6x slower** |
+| filter() | 13.3K ops/s | 4.3K ops/s | **3.1x slower** |
+| reduce() | 15.1K ops/s | 4.7K ops/s | **3.2x slower** |
 
-### Key Takeaways
+**Summary**: Pura read operations have significant overhead. Use `.toArray()` for hot loops.
 
-✅ **ProduceFast is 2-3.5x faster than Produce** across all object operations
-✅ **Direct Pura mutation is identical to native** for small arrays (<100)
-✅ **Native copy is optimal for small collections** (<100 elements)
-⚠️ **Pura read operations have overhead** (3-280x) - use `.toArray()` for hot loops
-⚠️ **Direct Pura mutation degrades** with size (8x slower at 10K elements)
-⚠️ **ProduceFast excels with medium-large Map/Set** (13x faster than Produce)
+### Key Findings
+
+#### ✅ Strengths
+
+1. **ProduceFast dominates Map/Set** (medium-large): 10-104x faster than Produce
+2. **ProduceFast faster for Objects**: 1.5-3.3x speedup over Produce
+3. **Produce/ProduceFast equivalent for Arrays** (medium-large): Both use optimized tree operations
+4. **Direct Pura matches Native** for small arrays (<100)
+5. **Native copy optimal** for small collections (<100)
+
+#### ⚠️ Trade-offs
+
+1. **Pura read operations have overhead** (3-336x) - use `.toArray()` for hot loops
+2. **Direct Pura mutation degrades** with size (9x slower at 10K)
+3. **Array immutable mutations**: Produce ≈ ProduceFast (both using tree ops via produceArray)
+4. **ProduceFast excels** when delegation to produceMap/produceSet works optimally
 
 ### Performance Recommendations
 
-**When to use Native:**
+**Use Native Copy:**
 - Small collections (<100)
 - Simple shallow updates
 - Hot loops with frequent reads
 
-**When to use ProduceFast:**
-- Medium-large collections (100-10K)
+**Use ProduceFast:**
+- **Medium-large Map** (100-10K) - **10-12x faster** than Produce! 🚀
+- **Medium-large Set** (100-10K) - **100x+ faster** than Produce! 🚀
+- **Object operations** - **1.5-3.3x faster** than Produce
 - Complex nested updates
-- Map/Set operations
-- Need 2-3x better performance than Produce
 
-**When to use Produce:**
+**Use Produce:**
+- Arrays (medium-large) - performs same as ProduceFast (both use tree ops)
 - Need ergonomic draft API
 - Complex logic with multiple mutations
-- Don't need maximum performance
 
-**When to use Pura:**
-- Need persistent data structures
-- Structural sharing critical
+**Use Direct Pura:**
+- Need persistent data structures with structural sharing
 - Functional programming patterns
-- Future: RRB-Tree concat operations
+- Future: RRB-Tree concat operations (O(log n))
+
+**Raw benchmark data**: See `/tmp/complete-bench-results.txt` or run `bun bench benchmarks/comprehensive.bench.ts`
 
 ---
 

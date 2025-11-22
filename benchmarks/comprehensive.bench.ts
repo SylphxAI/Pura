@@ -83,7 +83,7 @@ describe('Array (Small: 100) - Multiple Updates (10)', () => {
   });
 
   bench('[Immutable] Produce', () => {
-    return produce(nativeArr, d => {
+    return produce(puraArr, d => {
       for (const idx of indices) d[idx] = 999;
     });
   });
@@ -104,7 +104,7 @@ describe('Array (Small: 100) - Push', () => {
   });
 
   bench('[Immutable] Produce', () => {
-    return produce(nativeArr, d => { d.push(100); });
+    return produce(puraArr, d => { d.push(100); });
   });
 
   bench('[Immutable] ProduceFast', () => {
@@ -133,7 +133,7 @@ describe('Array (Medium: 1K) - Single Update', () => {
   });
 
   bench('[Immutable] Produce', () => {
-    return produce(nativeArr, d => { d[500] = 999; });
+    return produce(puraArr, d => { d[500] = 999; });
   });
 
   bench('[Immutable] ProduceFast', () => {
@@ -155,7 +155,7 @@ describe('Array (Medium: 1K) - Multiple Updates (10)', () => {
   });
 
   bench('[Immutable] Produce', () => {
-    return produce(nativeArr, d => {
+    return produce(puraArr, d => {
       for (const idx of indices) d[idx] = 999;
     });
   });
@@ -186,7 +186,7 @@ describe('Array (Large: 10K) - Single Update', () => {
   });
 
   bench('[Immutable] Produce', () => {
-    return produce(nativeArr, d => { d[5000] = 999; });
+    return produce(puraArr, d => { d[5000] = 999; });
   });
 
   bench('[Immutable] ProduceFast', () => {
@@ -208,7 +208,7 @@ describe('Array (Large: 10K) - Multiple Updates (100)', () => {
   });
 
   bench('[Immutable] Produce', () => {
-    return produce(nativeArr, d => {
+    return produce(puraArr, d => {
       for (const idx of indices) d[idx] = 999;
     });
   });
